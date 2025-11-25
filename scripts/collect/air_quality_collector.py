@@ -16,7 +16,7 @@ import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from scripts.utils.config import get_cities, get_date_range, ensure_data_directories
+from scripts.utils.config import get_cities, get_date_range, ensure_data_directories, get_openaq_key
 from scripts.utils.helpers import save_dataframe, convert_to_cet, standardize_city_name
 
 class AirQualityCollector:
@@ -24,13 +24,24 @@ class AirQualityCollector:
     
     def __init__(self):
         """Initialize air quality collector."""
-        # OpenAQ API (primary source - free, no API key required)
-        # Using v3 as v2 endpoints are deprecated (410 errors)
+        # OpenAQ API v3 (requires API key - register at https://explore.openaq.org/register)
+        # v1 and v2 endpoints were retired on January 31, 2025
         self.openaq_base_url = "https://api.openaq.org/v3"
+        self.openaq_api_key = get_openaq_key()
         self.openaq_session = requests.Session()
         self.openaq_session.headers.update({
             'Accept': 'application/json'
         })
+        
+        # Add API key to headers if available
+        if self.openaq_api_key:
+            self.openaq_session.headers.update({
+                'X-API-Key': self.openaq_api_key
+            })
+        else:
+            print("⚠ Warning: OpenAQ API key not found. Set OPENAQ_API_KEY in .env file.")
+            print("  Register at: https://explore.openaq.org/register")
+            print("  API calls may fail without authentication.\n")
         
         # EEA (fallback for manual CSV downloads)
         self.eea_base_url = "https://discomap.eea.europa.eu"
@@ -40,7 +51,9 @@ class AirQualityCollector:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
-        # Pollutant mapping: our names -> OpenAQ parameter codes
+        # Pollutant mapping: our names -> OpenAQ parameter IDs
+        # OpenAQ v3 uses parameter IDs, not codes
+        # Common parameter IDs: pm25, pm10, no2, o3, co, so2, bc
         self.pollutant_mapping = {
             'NO2': 'no2',
             'PM2.5': 'pm25',
@@ -86,7 +99,7 @@ class AirQualityCollector:
     
     def get_openaq_locations(self, city_key: str) -> List[Dict]:
         """
-        Find OpenAQ monitoring locations near a city.
+        Find OpenAQ monitoring locations near a city using v3 API.
         
         Args:
             city_key: City key
@@ -97,25 +110,45 @@ class AirQualityCollector:
         if city_key not in self.city_coords:
             return []
         
+        if not self.openaq_api_key:
+            print(f"  ⚠ OpenAQ API key required. Skipping location search for {city_key}.")
+            return []
+        
         coords = self.city_coords[city_key]
         
         try:
-            # Search for locations near the city
+            # OpenAQ v3 locations endpoint
+            # Documentation: https://docs.openaq.org/reference/get_locations
             url = f"{self.openaq_base_url}/locations"
             params = {
                 'coordinates': f"{coords['lat']},{coords['lon']}",
-                'radius': coords['radius'],
+                'radius': coords['radius'],  # radius in meters
                 'limit': 50,  # Get up to 50 nearby stations
-                'country_id': 'DE'  # Germany only
+                'countries_id': 'DE'  # Germany only (v3 uses 'countries_id')
             }
             
             response = self.openaq_session.get(url, params=params, timeout=10)
+            
+            if response.status_code == 401:
+                print(f"  ⚠ OpenAQ API authentication failed. Check your API key.")
+                return []
+            elif response.status_code == 410:
+                print(f"  ⚠ OpenAQ API endpoint deprecated (410 Gone)")
+                return []
+            
             response.raise_for_status()
             data = response.json()
             
+            # v3 API response structure
             locations = data.get('results', [])
             return locations
             
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                print(f"  ⚠ OpenAQ API authentication failed. Check your API key.")
+            else:
+                print(f"  Error finding OpenAQ locations for {city_key}: {e}")
+            return []
         except Exception as e:
             print(f"  Error finding OpenAQ locations for {city_key}: {e}")
             return []
@@ -123,7 +156,7 @@ class AirQualityCollector:
     def get_openaq_measurements(self, city_key: str, pollutant: str,
                                start_date: datetime, end_date: datetime) -> Optional[pd.DataFrame]:
         """
-        Get air quality measurements from OpenAQ API.
+        Get air quality measurements from OpenAQ API v3.
         
         Args:
             city_key: City key
@@ -134,10 +167,14 @@ class AirQualityCollector:
         Returns:
             DataFrame with air quality data or None
         """
+        if not self.openaq_api_key:
+            print(f"  ⚠ OpenAQ API key required. Skipping measurements for {pollutant}.")
+            return None
+        
         city = self.cities[city_key]
         coords = self.city_coords[city_key]
         
-        # Map pollutant name to OpenAQ parameter code
+        # Map pollutant name to OpenAQ parameter ID
         openaq_param = self.pollutant_mapping.get(pollutant, pollutant.lower())
         
         try:
@@ -145,21 +182,24 @@ class AirQualityCollector:
             locations_url = f"{self.openaq_base_url}/locations"
             locations_params = {
                 'coordinates': f"{coords['lat']},{coords['lon']}",
-                'radius': coords['radius'],
+                'radius': coords['radius'],  # radius in meters
                 'limit': 50,
-                'countries_id': 'DE'  # Note: v3 uses 'countries_id' not 'country_id'
+                'countries_id': 'DE'  # v3 uses 'countries_id' (plural)
             }
             
             locations_response = self.openaq_session.get(locations_url, params=locations_params, timeout=30)
             
-            # Handle 410 (deprecated) or other errors
-            if locations_response.status_code == 410:
-                print(f"  ⚠ OpenAQ API v3 endpoint not available (410 error)")
-                print(f"  OpenAQ API may require authentication or have changed.")
+            # Handle authentication and deprecated endpoint errors
+            if locations_response.status_code == 401:
+                print(f"  ⚠ OpenAQ API authentication failed. Check your API key.")
                 return None
-            
-            if locations_response.status_code != 200:
+            elif locations_response.status_code == 410:
+                print(f"  ⚠ OpenAQ API endpoint deprecated (410 Gone)")
+                return None
+            elif locations_response.status_code != 200:
                 print(f"  ⚠ OpenAQ API error: {locations_response.status_code}")
+                if locations_response.status_code == 403:
+                    print(f"  ⚠ Forbidden - API key may be invalid or expired.")
                 return None
             
             locations_data = locations_response.json()
@@ -168,21 +208,43 @@ class AirQualityCollector:
             if not locations:
                 return None
             
-            # Get location IDs
-            location_ids = [loc.get('id') for loc in locations if loc.get('id')]
+            # Extract sensor IDs from locations
+            # OpenAQ v3: Each location has sensors, and we query measurements by sensor ID
+            # Documentation: https://docs.openaq.org/reference/get_sensors__sensor_id__measurements
+            all_measurements = []
+            sensor_ids = []
             
-            if not location_ids:
+            # Collect sensor IDs that match our pollutant
+            for location in locations[:10]:  # Limit to first 10 locations
+                sensors = location.get('sensors', [])
+                for sensor in sensors:
+                    param = sensor.get('parameter', {})
+                    param_id = param.get('id')
+                    param_name = param.get('name', '').lower()
+                    
+                    # Match by parameter ID or name
+                    if param_id or param_name == openaq_param:
+                        sensor_id = sensor.get('id')
+                        if sensor_id:
+                            sensor_ids.append({
+                                'sensor_id': sensor_id,
+                                'location_id': location.get('id'),
+                                'location_name': location.get('name'),
+                                'parameter_id': param_id,
+                                'parameter_name': param_name,
+                                'coordinates': location.get('coordinates', {})
+                            })
+            
+            if not sensor_ids:
                 return None
             
-            # Now get measurements for these locations
-            url = f"{self.openaq_base_url}/measurements"
-            all_measurements = []
-            
-            # Query each location (limit to first 5 to avoid too many requests)
-            for location_id in location_ids[:5]:
+            # Query measurements for each sensor
+            # OpenAQ v3 uses: /v3/sensors/{sensor_id}/measurements
+            for sensor_info in sensor_ids[:10]:  # Limit to first 10 sensors
+                sensor_id = sensor_info['sensor_id']
+                url = f"{self.openaq_base_url}/sensors/{sensor_id}/measurements"
+                
                 params = {
-                    'locations_id': location_id,  # v3 uses 'locations_id'
-                    'parameters_id': openaq_param,
                     'date_from': start_date.strftime('%Y-%m-%d'),
                     'date_to': end_date.strftime('%Y-%m-%d'),
                     'limit': 10000
@@ -193,12 +255,16 @@ class AirQualityCollector:
                     params['page'] = page
                     response = self.openaq_session.get(url, params=params, timeout=30)
                     
-                    if response.status_code == 410:
+                    if response.status_code == 401:
+                        print(f"  ⚠ OpenAQ API authentication failed.")
+                        return None
+                    elif response.status_code == 410:
                         print(f"  ⚠ OpenAQ API endpoint deprecated")
                         return None
-                    
-                    if response.status_code != 200:
-                        break  # Skip this location if error
+                    elif response.status_code == 404:
+                        break  # Sensor might not have data for this date range
+                    elif response.status_code != 200:
+                        break  # Skip this sensor if error
                     
                     response.raise_for_status()
                     data = response.json()
@@ -207,9 +273,17 @@ class AirQualityCollector:
                     if not results:
                         break
                     
+                    # Add location and parameter info to each measurement
+                    for measurement in results:
+                        measurement['location_id'] = sensor_info['location_id']
+                        measurement['location_name'] = sensor_info['location_name']
+                        measurement['parameter_id'] = sensor_info['parameter_id']
+                        measurement['parameter_name'] = sensor_info['parameter_name']
+                        measurement['coordinates'] = sensor_info['coordinates']
+                    
                     all_measurements.extend(results)
                     
-                    # Check if there are more pages
+                    # Check if there are more pages (v3 pagination structure)
                     meta = data.get('meta', {})
                     found = meta.get('found', 0)
                     limit = meta.get('limit', 10000)
@@ -219,7 +293,7 @@ class AirQualityCollector:
                     page += 1
                     time.sleep(0.3)  # Rate limiting
                 
-                time.sleep(0.3)  # Rate limiting between locations
+                time.sleep(0.3)  # Rate limiting between sensors
             
             if not all_measurements:
                 return None
@@ -227,17 +301,23 @@ class AirQualityCollector:
             # Convert to DataFrame
             df = pd.DataFrame(all_measurements)
             
-            # Standardize column names
+            # Standardize column names (v3 API response structure may differ)
+            # v3 API uses nested structures, so we need to handle them
             column_mapping = {
                 'date': 'datetime',
                 'date.utc': 'datetime_utc',
+                'dateLocal': 'datetime',
                 'parameter': 'pollutant',
+                'parameterId': 'pollutant',
                 'value': 'value',
                 'unit': 'unit',
                 'location': 'station_name',
                 'locationId': 'station_code',
+                'locationName': 'station_name',
                 'coordinates.latitude': 'lat',
-                'coordinates.longitude': 'lon'
+                'coordinates.longitude': 'lon',
+                'latitude': 'lat',
+                'longitude': 'lon'
             }
             
             # Rename columns that exist
@@ -245,7 +325,7 @@ class AirQualityCollector:
                 if old_col in df.columns:
                     df = df.rename(columns={old_col: new_col})
             
-            # Map pollutant codes to our standard names
+            # Map pollutant IDs to our standard names
             pollutant_reverse_map = {v: k for k, v in self.pollutant_mapping.items()}
             if 'pollutant' in df.columns:
                 df['pollutant'] = df['pollutant'].map(
@@ -293,9 +373,12 @@ class AirQualityCollector:
             return df
             
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 410:
+            if e.response.status_code == 401:
+                print(f"  ⚠ OpenAQ API authentication failed. Check your API key.")
+                print(f"  Register at: https://explore.openaq.org/register")
+            elif e.response.status_code == 410:
                 print(f"  ⚠ OpenAQ API endpoint deprecated (410 Gone)")
-                print(f"  OpenAQ API structure has changed. Please use manual CSV download.")
+                print(f"  Please ensure you're using v3 API endpoints.")
             else:
                 print(f"  Error fetching OpenAQ data for {city['name']}, {pollutant}: {e}")
             return None
@@ -437,8 +520,15 @@ class AirQualityCollector:
         print(f"Pollutants: {', '.join(pollutants)}")
         
         if use_openaq:
-            print("\n⚠ Attempting OpenAQ API (Note: OpenAQ API v2 is deprecated, v3 may have different structure)")
-            print("If this fails, please use manual CSV download from EEA portal.\n")
+            if not self.openaq_api_key:
+                print("\n⚠ OpenAQ API v3 requires an API key.")
+                print("  Register at: https://explore.openaq.org/register")
+                print("  Set OPENAQ_API_KEY in your .env file")
+                print("  Falling back to manual CSV download method.\n")
+                use_openaq = False
+            else:
+                print("\nUsing OpenAQ API v3 (v1 and v2 were retired on January 31, 2025)")
+                print("If this fails, please use manual CSV download from EEA portal.\n")
             
             # Try OpenAQ API first
             for city_key in city_keys:
@@ -528,8 +618,9 @@ def main():
     print("=" * 60)
     print("Air Quality Data Collection")
     print("=" * 60)
-    print("\nUsing OpenAQ API (free, aggregates data from EEA and other sources)")
-    print("No API key required!\n")
+    print("\nUsing OpenAQ API v3")
+    print("Note: API key required (register at https://explore.openaq.org/register)")
+    print("Set OPENAQ_API_KEY in your .env file\n")
     
     df = collector.collect_air_quality_data(start_date, end_date, use_openaq=True)
     

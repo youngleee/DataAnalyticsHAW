@@ -63,6 +63,10 @@ def get_tomtom_key() -> str:
     """Get TomTom API key (optional)."""
     return os.getenv('TOMTOM_API_KEY', '')
 
+def get_openaq_key() -> str:
+    """Get OpenAQ API key (required for v3 API)."""
+    return os.getenv('OPENAQ_API_KEY', '')
+
 def get_date_range() -> Tuple[datetime, datetime]:
     """Get start and end dates from environment or use defaults."""
     start_str = os.getenv('START_DATE', '2023-01-01')
