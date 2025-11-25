@@ -44,6 +44,9 @@ def collect_data():
     weather_df = weather_collector.collect_weather_data(start_date, end_date)
     if not weather_df.empty:
         weather_collector.save_weather_data(weather_df)
+        print("\n✓ Weather data saved. You can inspect the CSV file before running cleaning.")
+    else:
+        print("⚠ No weather data collected.")
     
     # Collect air quality data
     print("\n--- Collecting Air Quality Data ---")
@@ -51,6 +54,7 @@ def collect_data():
     aq_df = aq_collector.collect_air_quality_data(start_date, end_date)
     if not aq_df.empty:
         aq_collector.save_air_quality_data(aq_df)
+        print("\n✓ Air quality data saved. You can inspect the CSV file before running cleaning.")
     else:
         print("NOTE: Air quality data collection may require manual download.")
         print("Please download CSV files from EEA portal and use download_from_csv() method.")
@@ -64,8 +68,19 @@ def collect_data():
         traffic_df = traffic_collector.collect_traffic_data(start_date, end_date, use_synthetic=True)
     if not traffic_df.empty:
         traffic_collector.save_traffic_data(traffic_df)
+        print("\n✓ Traffic data saved. You can inspect the CSV file before running cleaning.")
+    else:
+        print("⚠ No traffic data collected.")
     
-    print("\nData collection complete!")
+    print("\n" + "=" * 60)
+    print("Data collection complete!")
+    print("=" * 60)
+    print("\nRaw data files saved in:")
+    print("  - data/raw/weather/ (CSV and Parquet)")
+    print("  - data/raw/air_quality/ (CSV and Parquet)")
+    print("  - data/raw/traffic/ (CSV and Parquet)")
+    print("\nYou can now inspect the CSV files before running the cleaning step.")
+    print("Run: python scripts/main.py --clean (or --all to continue)")
 
 def clean_data():
     """Clean collected data."""
@@ -87,16 +102,24 @@ def clean_data():
         cleaned_datasets['weather'] = cleaner.clean_weather_data(datasets['weather'])
         from scripts.utils.helpers import save_dataframe
         save_dataframe(cleaned_datasets['weather'], 'data/processed/weather_cleaned.parquet')
+    else:
+        print("\n--- Skipping Weather Data Cleaning (no data available) ---")
     
     if 'air_quality' in datasets and not datasets['air_quality'].empty:
         print("\n--- Cleaning Air Quality Data ---")
         cleaned_datasets['air_quality'] = cleaner.clean_air_quality_data(datasets['air_quality'])
         save_dataframe(cleaned_datasets['air_quality'], 'data/processed/air_quality_cleaned.parquet')
+    else:
+        print("\n--- Skipping Air Quality Data Cleaning (no data available) ---")
+        print("NOTE: EEA air quality data requires manual download.")
+        print("The pipeline will continue without air quality data.")
     
     if 'traffic' in datasets and not datasets['traffic'].empty:
         print("\n--- Cleaning Traffic Data ---")
         cleaned_datasets['traffic'] = cleaner.clean_traffic_data(datasets['traffic'])
         save_dataframe(cleaned_datasets['traffic'], 'data/processed/traffic_cleaned.parquet')
+    else:
+        print("\n--- Skipping Traffic Data Cleaning (no data available) ---")
     
     print("\nData cleaning complete!")
 

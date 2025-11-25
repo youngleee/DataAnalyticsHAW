@@ -112,21 +112,26 @@ class AirQualityCollector:
         
         return None
     
-    def download_from_csv(self, filepath: str, city_key: str) -> Optional[pd.DataFrame]:
+    def download_from_csv(self, filepath: str, city_key: str, 
+                         save_processed: bool = True) -> Optional[pd.DataFrame]:
         """
         Load air quality data from a manually downloaded CSV file.
         
         If you download CSV files from EEA portal, use this method to load them.
+        The processed data will be saved in both CSV and Parquet formats for inspection.
         
         Args:
             filepath: Path to CSV file
             city_key: City key for the data
+            save_processed: Whether to save the processed data (default: True)
             
         Returns:
             DataFrame with standardized air quality data
         """
         try:
+            print(f"Loading air quality data from {filepath}...")
             df = pd.read_csv(filepath, encoding='utf-8')
+            print(f"  Loaded {len(df)} records")
             
             # Standardize column names (EEA format may vary)
             # Common EEA column names:
@@ -165,11 +170,51 @@ class AirQualityCollector:
                 df['date'] = df['datetime'].dt.date
                 df['hour'] = df['datetime'].dt.hour
             
+            # Save processed data if requested
+            if save_processed and not df.empty:
+                self.save_air_quality_data(df)
+            
             return df
             
         except Exception as e:
             print(f"Error loading CSV file {filepath}: {e}")
             return None
+    
+    def load_multiple_csv_files(self, filepaths: Dict[str, str]) -> pd.DataFrame:
+        """
+        Load multiple CSV files for different cities and combine them.
+        
+        Args:
+            filepaths: Dictionary mapping city_key to CSV file path
+                      Example: {'berlin': 'path/to/berlin_data.csv', 
+                               'munich': 'path/to/munich_data.csv'}
+        
+        Returns:
+            Combined DataFrame with all air quality data
+        """
+        all_data = []
+        
+        for city_key, filepath in filepaths.items():
+            if city_key not in self.cities:
+                print(f"Warning: Unknown city key '{city_key}'. Skipping.")
+                continue
+            
+            df = self.download_from_csv(filepath, city_key, save_processed=False)
+            if df is not None and not df.empty:
+                all_data.append(df)
+        
+        if not all_data:
+            print("No data loaded from CSV files.")
+            return pd.DataFrame()
+        
+        # Combine all dataframes
+        combined_df = pd.concat(all_data, ignore_index=True)
+        
+        # Save combined data
+        if not combined_df.empty:
+            self.save_air_quality_data(combined_df)
+        
+        return combined_df
     
     def collect_air_quality_data(self, start_date: datetime, end_date: datetime,
                                 city_keys: Optional[List[str]] = None,
@@ -220,21 +265,34 @@ class AirQualityCollector:
     
     def save_air_quality_data(self, df: pd.DataFrame, filename: Optional[str] = None):
         """
-        Save air quality data to file.
+        Save air quality data to file (both CSV and Parquet formats).
         
         Args:
             df: DataFrame with air quality data
-            filename: Output filename (auto-generated if None)
+            filename: Output filename base (auto-generated if None)
         """
         ensure_data_directories()
         
         if filename is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"data/raw/air_quality/air_quality_data_{timestamp}.parquet"
+            filename_base = f"data/raw/air_quality/air_quality_data_{timestamp}"
+        else:
+            # Remove extension if provided
+            filename_base = filename.rsplit('.', 1)[0] if '.' in filename else filename
         
-        save_dataframe(df, filename, format='parquet')
-        print(f"Air quality data saved to {filename}")
-        print(f"Total records: {len(df)}")
+        # Save as Parquet (efficient storage)
+        parquet_file = f"{filename_base}.parquet"
+        save_dataframe(df, parquet_file, format='parquet')
+        
+        # Save as CSV (easy to view in Excel/text editors)
+        csv_file = f"{filename_base}.csv"
+        save_dataframe(df, csv_file, format='csv')
+        
+        print(f"\nAir quality data saved:")
+        print(f"  CSV (for viewing): {csv_file}")
+        print(f"  Parquet (for processing): {parquet_file}")
+        print(f"  Total records: {len(df)}")
+        print(f"  Columns: {', '.join(df.columns.tolist())}")
 
 def main():
     """Main function for standalone execution."""

@@ -258,26 +258,50 @@ class TrafficCollector:
             print("\nNo traffic data collected. Consider using synthetic data as fallback.")
             return pd.DataFrame()
         
-        df = pd.concat(all_data, ignore_index=True) if isinstance(all_data[0], pd.DataFrame) else pd.DataFrame(all_data)
+        # Filter out None values and handle both dict and DataFrame inputs
+        filtered_data = [d for d in all_data if d is not None]
+        
+        if not filtered_data:
+            print("\nNo valid traffic data collected. Consider using synthetic data as fallback.")
+            return pd.DataFrame()
+        
+        # Check if all items are DataFrames or all are dicts
+        if isinstance(filtered_data[0], pd.DataFrame):
+            df = pd.concat(filtered_data, ignore_index=True)
+        else:
+            df = pd.DataFrame(filtered_data)
         return df
     
     def save_traffic_data(self, df: pd.DataFrame, filename: Optional[str] = None):
         """
-        Save traffic data to file.
+        Save traffic data to file (both CSV and Parquet formats).
         
         Args:
             df: DataFrame with traffic data
-            filename: Output filename (auto-generated if None)
+            filename: Output filename base (auto-generated if None)
         """
         ensure_data_directories()
         
         if filename is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"data/raw/traffic/traffic_data_{timestamp}.parquet"
+            filename_base = f"data/raw/traffic/traffic_data_{timestamp}"
+        else:
+            # Remove extension if provided
+            filename_base = filename.rsplit('.', 1)[0] if '.' in filename else filename
         
-        save_dataframe(df, filename, format='parquet')
-        print(f"Traffic data saved to {filename}")
-        print(f"Total records: {len(df)}")
+        # Save as Parquet (efficient storage)
+        parquet_file = f"{filename_base}.parquet"
+        save_dataframe(df, parquet_file, format='parquet')
+        
+        # Save as CSV (easy to view in Excel/text editors)
+        csv_file = f"{filename_base}.csv"
+        save_dataframe(df, csv_file, format='csv')
+        
+        print(f"\nTraffic data saved:")
+        print(f"  CSV (for viewing): {csv_file}")
+        print(f"  Parquet (for processing): {parquet_file}")
+        print(f"  Total records: {len(df)}")
+        print(f"  Columns: {', '.join(df.columns.tolist())}")
 
 def main():
     """Main function for standalone execution."""

@@ -170,21 +170,34 @@ class WeatherCollector:
     
     def save_weather_data(self, df: pd.DataFrame, filename: Optional[str] = None):
         """
-        Save weather data to file.
+        Save weather data to file (both CSV and Parquet formats).
         
         Args:
             df: DataFrame with weather data
-            filename: Output filename (auto-generated if None)
+            filename: Output filename base (auto-generated if None)
         """
         ensure_data_directories()
         
         if filename is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"data/raw/weather/weather_data_{timestamp}.parquet"
+            filename_base = f"data/raw/weather/weather_data_{timestamp}"
+        else:
+            # Remove extension if provided
+            filename_base = filename.rsplit('.', 1)[0] if '.' in filename else filename
         
-        save_dataframe(df, filename, format='parquet')
-        print(f"Weather data saved to {filename}")
-        print(f"Total records: {len(df)}")
+        # Save as Parquet (efficient storage)
+        parquet_file = f"{filename_base}.parquet"
+        save_dataframe(df, parquet_file, format='parquet')
+        
+        # Save as CSV (easy to view in Excel/text editors)
+        csv_file = f"{filename_base}.csv"
+        save_dataframe(df, csv_file, format='csv')
+        
+        print(f"\nWeather data saved:")
+        print(f"  CSV (for viewing): {csv_file}")
+        print(f"  Parquet (for processing): {parquet_file}")
+        print(f"  Total records: {len(df)}")
+        print(f"  Columns: {', '.join(df.columns.tolist())}")
 
 def main():
     """Main function for standalone execution."""

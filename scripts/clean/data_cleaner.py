@@ -205,11 +205,26 @@ class DataCleaner:
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], errors='coerce')
         
-        # Remove duplicates
+        # Remove duplicates - check which columns exist
+        duplicate_cols = []
+        
+        # Build subset list based on available columns
+        if 'city' in df.columns:
+            duplicate_cols.append('city')
+        if 'city_key' in df.columns and 'city' not in df.columns:
+            duplicate_cols.append('city_key')
+        
         if 'datetime' in df.columns:
-            df = df.drop_duplicates(subset=['city', 'datetime'], keep='first')
-        else:
-            df = df.drop_duplicates(subset=['city', 'date', 'hour'], keep='first')
+            duplicate_cols.append('datetime')
+        elif 'date' in df.columns:
+            duplicate_cols.append('date')
+            # Only add 'hour' if it exists
+            if 'hour' in df.columns:
+                duplicate_cols.append('hour')
+        
+        # Remove duplicates only if we have columns to check
+        if duplicate_cols:
+            df = df.drop_duplicates(subset=duplicate_cols, keep='first')
         
         # Handle missing values
         missing_before = df.isnull().sum()
