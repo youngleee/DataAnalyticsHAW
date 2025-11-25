@@ -1,13 +1,10 @@
 """
-Collect historical weather data from OpenWeatherMap API.
+Collect historical weather data from Meteostat API.
 
-Note: OpenWeatherMap's free tier has limitations on historical data.
-For historical data, you may need to use their One Call API 3.0 with history subscription,
-or use alternative sources like Meteostat API (free for historical data).
+Meteostat provides free access to historical weather data from weather stations worldwide.
+No API key required.
 """
-import requests
 import pandas as pd
-import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import os
@@ -16,105 +13,147 @@ import sys
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from scripts.utils.config import get_openweathermap_key, get_cities, get_date_range, ensure_data_directories
+try:
+    from meteostat import Point, Daily, Stations
+except ImportError:
+    print("ERROR: meteostat package not installed. Please run: pip install meteostat")
+    sys.exit(1)
+
+from scripts.utils.config import get_cities, get_date_range, ensure_data_directories
 from scripts.utils.helpers import save_dataframe, convert_to_cet
 
 class WeatherCollector:
-    """Collect weather data from OpenWeatherMap API."""
+    """Collect weather data from Meteostat API."""
     
-    def __init__(self, api_key: Optional[str] = None):
-        """
-        Initialize weather collector.
-        
-        Args:
-            api_key: OpenWeatherMap API key (if None, loads from env)
-        """
-        self.api_key = api_key or get_openweathermap_key()
-        self.base_url = "https://api.openweathermap.org/data/2.5"
+    def __init__(self):
+        """Initialize weather collector."""
         self.cities = get_cities()
-        self.rate_limit_delay = 1  # seconds between requests
         
-    def get_historical_weather(self, city_key: str, date: datetime) -> Optional[Dict]:
+        # Meteostat station IDs for major German cities (will be auto-detected if not specified)
+        # You can find station IDs at: https://meteostat.net/en/stations
+        self.station_ids = {
+            'berlin': None,  # Will auto-detect nearest station
+            'munich': None,
+            'hamburg': None,
+            'cologne': None,
+            'frankfurt': None
+        }
+        
+    def find_nearest_station(self, city_key: str) -> Optional[str]:
         """
-        Get historical weather data for a specific date.
-        
-        Note: OpenWeatherMap free tier doesn't provide historical data.
-        This method uses the current weather endpoint as a fallback.
-        For true historical data, consider using:
-        - OpenWeatherMap One Call API 3.0 (paid)
-        - Meteostat API (free historical data)
-        - Weather Underground API
+        Find the nearest weather station to a city.
         
         Args:
             city_key: City key (e.g., 'berlin')
-            date: Date to get weather for
             
         Returns:
-            Dictionary with weather data or None if error
+            Station ID or None
         """
         city = self.cities[city_key]
         lat = city['lat']
         lon = city['lon']
         
-        # For historical data, we need to use timestamp
-        # OpenWeatherMap One Call API 3.0 requires paid subscription
-        # For now, we'll use current weather as a placeholder
-        # You should replace this with actual historical API endpoint
+        try:
+            # Get nearby stations
+            stations = Stations()
+            stations = stations.nearby(lat, lon)
+            stations = stations.fetch(1)  # Get the nearest station
+            
+            if not stations.empty:
+                station_id = stations.index[0]
+                station_name = stations.iloc[0]['name']
+                print(f"  Found nearest station for {city['name']}: {station_name} (ID: {station_id})")
+                return station_id
+            else:
+                print(f"  Warning: No nearby station found for {city['name']}")
+                return None
+        except Exception as e:
+            print(f"  Error finding station for {city['name']}: {e}")
+            return None
+    
+    def get_weather_data(self, city_key: str, start_date: datetime, 
+                        end_date: datetime) -> Optional[pd.DataFrame]:
+        """
+        Get historical weather data for a city over a date range.
         
-        url = f"{self.base_url}/weather"
-        params = {
-            'lat': lat,
-            'lon': lon,
-            'appid': self.api_key,
-            'units': 'metric'  # Celsius, meters/second
-        }
+        Args:
+            city_key: City key (e.g., 'berlin')
+            start_date: Start date
+            end_date: End date
+            
+        Returns:
+            DataFrame with weather data or None if error
+        """
+        city = self.cities[city_key]
+        lat = city['lat']
+        lon = city['lon']
+        
+        # Find nearest station if not already cached
+        if self.station_ids[city_key] is None:
+            self.station_ids[city_key] = self.find_nearest_station(city_key)
+        
+        station_id = self.station_ids[city_key]
+        
+        if station_id is None:
+            # Use coordinates directly (Meteostat will find nearest station)
+            location = Point(lat, lon)
+        else:
+            # Use specific station
+            location = Point(lat, lon, alt=0)  # Can add altitude if known
         
         try:
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+            # Get daily weather data
+            data = Daily(location, start_date, end_date)
+            data = data.fetch()
             
-            # Extract relevant weather data
-            weather_data = {
-                'city': city['name'],
-                'city_key': city_key,
-                'date': date.strftime('%Y-%m-%d'),
-                'timestamp': convert_to_cet(datetime.now(), tz_aware=False),
-                'temperature': data['main']['temp'],
-                'feels_like': data['main']['feels_like'],
-                'temp_min': data['main']['temp_min'],
-                'temp_max': data['main']['temp_max'],
-                'humidity': data['main']['humidity'],
-                'pressure': data['main']['pressure'],
-                'wind_speed': data['wind'].get('speed', 0),
-                'wind_direction': data['wind'].get('deg', None),
-                'clouds': data['clouds'].get('all', 0),
-                'visibility': data.get('visibility', None),
-                'weather_main': data['weather'][0]['main'],
-                'weather_description': data['weather'][0]['description']
+            if data.empty:
+                print(f"  Warning: No weather data available for {city['name']} from {start_date.date()} to {end_date.date()}")
+                return None
+            
+            # Reset index to get date as column
+            data = data.reset_index()
+            
+            # Add city information
+            data['city'] = city['name']
+            data['city_key'] = city_key
+            data['lat'] = lat
+            data['lon'] = lon
+            
+            # Rename columns to match our standard format
+            column_mapping = {
+                'time': 'date',
+                'tavg': 'temperature',  # Average temperature
+                'tmin': 'temp_min',
+                'tmax': 'temp_max',
+                'prcp': 'precipitation',  # Precipitation in mm
+                'wspd': 'wind_speed',  # Wind speed (km/h, will convert to m/s)
+                'pres': 'pressure',  # Pressure in hPa
+                'rhum': 'humidity'  # Relative humidity (%)
             }
             
-            # Add rain data if available
-            if 'rain' in data:
-                weather_data['rain_1h'] = data['rain'].get('1h', 0)
-                weather_data['rain_3h'] = data['rain'].get('3h', 0)
-            else:
-                weather_data['rain_1h'] = 0
-                weather_data['rain_3h'] = 0
-                
-            # Add snow data if available
-            if 'snow' in data:
-                weather_data['snow_1h'] = data['snow'].get('1h', 0)
-            else:
-                weather_data['snow_1h'] = 0
+            # Rename columns that exist
+            for old_col, new_col in column_mapping.items():
+                if old_col in data.columns:
+                    data = data.rename(columns={old_col: new_col})
             
-            return weather_data
+            # Convert wind speed from km/h to m/s if present
+            if 'wind_speed' in data.columns:
+                data['wind_speed'] = data['wind_speed'] / 3.6
             
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching weather data for {city['name']} on {date}: {e}")
-            return None
-        except KeyError as e:
-            print(f"Error parsing weather data for {city['name']} on {date}: {e}")
+            # Convert date to datetime if it's not already
+            if 'date' in data.columns:
+                data['date'] = pd.to_datetime(data['date'])
+                data['datetime'] = data['date']  # For consistency
+            
+            # Fill missing temperature with average if min/max available
+            if 'temperature' not in data.columns or data['temperature'].isna().all():
+                if 'temp_min' in data.columns and 'temp_max' in data.columns:
+                    data['temperature'] = (data['temp_min'] + data['temp_max']) / 2
+            
+            return data
+            
+        except Exception as e:
+            print(f"  Error fetching weather data for {city['name']}: {e}")
             return None
     
     def collect_weather_data(self, start_date: datetime, end_date: datetime, 
@@ -134,38 +173,29 @@ class WeatherCollector:
             city_keys = list(self.cities.keys())
         
         all_data = []
-        current_date = start_date
         
         print(f"Collecting weather data from {start_date.date()} to {end_date.date()}")
         print(f"Cities: {', '.join([self.cities[k]['name'] for k in city_keys])}")
+        print(f"\nUsing Meteostat API (free historical weather data)")
+        print(f"Finding nearest weather stations...\n")
         
-        total_days = (end_date - start_date).days + 1
-        total_requests = total_days * len(city_keys)
-        
-        request_count = 0
-        
-        while current_date <= end_date:
-            for city_key in city_keys:
-                print(f"Fetching weather for {self.cities[city_key]['name']} on {current_date.date()}...")
-                
-                weather_data = self.get_historical_weather(city_key, current_date)
-                
-                if weather_data:
-                    all_data.append(weather_data)
-                
-                request_count += 1
-                
-                # Rate limiting
-                if request_count < total_requests:
-                    time.sleep(self.rate_limit_delay)
+        for city_key in city_keys:
+            city_name = self.cities[city_key]['name']
+            print(f"Fetching weather data for {city_name}...")
             
-            current_date += timedelta(days=1)
+            weather_df = self.get_weather_data(city_key, start_date, end_date)
+            
+            if weather_df is not None and not weather_df.empty:
+                all_data.append(weather_df)
+                print(f"  ✓ Collected {len(weather_df)} days of data for {city_name}")
+            else:
+                print(f"  ⚠ No data collected for {city_name}")
         
         if not all_data:
-            print("Warning: No weather data collected!")
+            print("\nWarning: No weather data collected!")
             return pd.DataFrame()
         
-        df = pd.DataFrame(all_data)
+        df = pd.concat(all_data, ignore_index=True)
         return df
     
     def save_weather_data(self, df: pd.DataFrame, filename: Optional[str] = None):
@@ -205,14 +235,10 @@ def main():
     start_date, end_date = get_date_range()
     
     print("=" * 60)
-    print("OpenWeatherMap Weather Data Collection")
+    print("Meteostat Weather Data Collection")
     print("=" * 60)
-    print("\nNOTE: OpenWeatherMap free tier has limited historical data access.")
-    print("For true historical data, consider:")
-    print("1. OpenWeatherMap One Call API 3.0 (paid subscription)")
-    print("2. Meteostat API (free historical weather data)")
-    print("3. Weather Underground API")
-    print("\nThis script will attempt to collect available data...\n")
+    print("\nMeteostat provides free historical weather data.")
+    print("No API key required!\n")
     
     df = collector.collect_weather_data(start_date, end_date)
     
@@ -223,8 +249,7 @@ def main():
         print(f"  Date range: {df['date'].min()} to {df['date'].max()}")
         print(f"  Total records: {len(df)}")
     else:
-        print("\nNo data collected. Please check your API key and network connection.")
+        print("\nNo data collected. Please check your date range and network connection.")
 
 if __name__ == "__main__":
     main()
-

@@ -11,4 +11,5 @@ lxml>=4.9.0
 holidays>=0.34
 pytz>=2023.3
 tqdm>=4.65.0
+meteostat>=1.6.0
 

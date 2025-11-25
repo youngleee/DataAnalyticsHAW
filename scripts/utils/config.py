@@ -56,8 +56,8 @@ def get_api_key(key_name: str) -> str:
     return key
 
 def get_openweathermap_key() -> str:
-    """Get OpenWeatherMap API key."""
-    return get_api_key('OPENWEATHERMAP_API_KEY')
+    """Get OpenWeatherMap API key (deprecated - using Meteostat now)."""
+    return os.getenv('OPENWEATHERMAP_API_KEY', '')
 
 def get_tomtom_key() -> str:
     """Get TomTom API key (optional)."""

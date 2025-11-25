@@ -1,8 +1,8 @@
 """
-Collect air quality data from European Environment Agency (EEA).
+Collect air quality data from OpenAQ API and EEA.
 
-The EEA provides air quality data through their data portal.
-This script downloads data for German monitoring stations.
+OpenAQ aggregates air quality data from multiple sources including EEA.
+This provides programmatic access to historical air quality data.
 """
 import requests
 import pandas as pd
@@ -20,25 +20,42 @@ from scripts.utils.config import get_cities, get_date_range, ensure_data_directo
 from scripts.utils.helpers import save_dataframe, convert_to_cet, standardize_city_name
 
 class AirQualityCollector:
-    """Collect air quality data from EEA."""
+    """Collect air quality data from OpenAQ API (and EEA via manual CSV)."""
     
     def __init__(self):
         """Initialize air quality collector."""
-        self.base_url = "https://discomap.eea.europa.eu"
+        # OpenAQ API (primary source - free, no API key required)
+        # Using v3 as v2 endpoints are deprecated (410 errors)
+        self.openaq_base_url = "https://api.openaq.org/v3"
+        self.openaq_session = requests.Session()
+        self.openaq_session.headers.update({
+            'Accept': 'application/json'
+        })
+        
+        # EEA (fallback for manual CSV downloads)
+        self.eea_base_url = "https://discomap.eea.europa.eu"
         self.cities = get_cities()
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
-        # EEA station codes for major German cities (these may need to be updated)
-        # You can find station codes at: https://www.eea.europa.eu/data-and-maps/data/air-quality-observations
-        self.station_mapping = {
-            'berlin': ['DEBE001', 'DEBE002', 'DEBE003'],  # Example station codes
-            'munich': ['DEMU001', 'DEMU002'],
-            'hamburg': ['DEHA001', 'DEHA002'],
-            'cologne': ['DEKO001'],
-            'frankfurt': ['DEFR001', 'DEFR002']
+        # Pollutant mapping: our names -> OpenAQ parameter codes
+        self.pollutant_mapping = {
+            'NO2': 'no2',
+            'PM2.5': 'pm25',
+            'PM10': 'pm10',
+            'O3': 'o3',
+            'CO': 'co'
+        }
+        
+        # City coordinates for OpenAQ location search
+        self.city_coords = {
+            'berlin': {'lat': 52.5200, 'lon': 13.4050, 'radius': 20000},  # 20km radius
+            'munich': {'lat': 48.1351, 'lon': 11.5820, 'radius': 20000},
+            'hamburg': {'lat': 53.5511, 'lon': 10.0000, 'radius': 20000},
+            'cologne': {'lat': 50.9375, 'lon': 6.9603, 'radius': 20000},
+            'frankfurt': {'lat': 50.1109, 'lon': 8.6821, 'radius': 20000}
         }
         
     def get_station_data_url(self, station_code: str, pollutant: str, 
@@ -67,16 +84,46 @@ class AirQualityCollector:
         
         return url
     
-    def download_eea_data_direct(self, city_key: str, pollutant: str,
-                                 start_date: datetime, end_date: datetime) -> Optional[pd.DataFrame]:
+    def get_openaq_locations(self, city_key: str) -> List[Dict]:
         """
-        Download EEA data directly from their data portal.
+        Find OpenAQ monitoring locations near a city.
         
-        Note: EEA provides data through their website. For automated downloads,
-        you may need to:
-        1. Use their REST API (if available)
-        2. Download CSV files from their portal
-        3. Use their data download service
+        Args:
+            city_key: City key
+            
+        Returns:
+            List of location dictionaries
+        """
+        if city_key not in self.city_coords:
+            return []
+        
+        coords = self.city_coords[city_key]
+        
+        try:
+            # Search for locations near the city
+            url = f"{self.openaq_base_url}/locations"
+            params = {
+                'coordinates': f"{coords['lat']},{coords['lon']}",
+                'radius': coords['radius'],
+                'limit': 50,  # Get up to 50 nearby stations
+                'country_id': 'DE'  # Germany only
+            }
+            
+            response = self.openaq_session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            locations = data.get('results', [])
+            return locations
+            
+        except Exception as e:
+            print(f"  Error finding OpenAQ locations for {city_key}: {e}")
+            return []
+    
+    def get_openaq_measurements(self, city_key: str, pollutant: str,
+                               start_date: datetime, end_date: datetime) -> Optional[pd.DataFrame]:
+        """
+        Get air quality measurements from OpenAQ API.
         
         Args:
             city_key: City key
@@ -88,29 +135,173 @@ class AirQualityCollector:
             DataFrame with air quality data or None
         """
         city = self.cities[city_key]
-        city_name = city['eea_name']
+        coords = self.city_coords[city_key]
         
-        # EEA data portal URL
-        # You may need to adjust this based on the actual EEA data portal structure
-        portal_url = "https://www.eea.europa.eu/data-and-maps/data/air-quality-observations"
+        # Map pollutant name to OpenAQ parameter code
+        openaq_param = self.pollutant_mapping.get(pollutant, pollutant.lower())
         
-        print(f"Attempting to download {pollutant} data for {city_name}...")
-        print(f"Date range: {start_date.date()} to {end_date.date()}")
-        
-        # Method 1: Try to use EEA's data download service
-        # This is a placeholder - you'll need to adapt based on actual EEA API
-        
-        # For now, we'll create a template structure
-        # In practice, you would:
-        # 1. Navigate to EEA data portal
-        # 2. Select country (Germany), city, pollutant
-        # 3. Download CSV or use their API
-        
-        print(f"NOTE: EEA data collection requires manual setup.")
-        print(f"Please visit: {portal_url}")
-        print(f"Or use the EEA REST API if available.")
-        
-        return None
+        try:
+            # First, find locations near the city using locations endpoint
+            locations_url = f"{self.openaq_base_url}/locations"
+            locations_params = {
+                'coordinates': f"{coords['lat']},{coords['lon']}",
+                'radius': coords['radius'],
+                'limit': 50,
+                'countries_id': 'DE'  # Note: v3 uses 'countries_id' not 'country_id'
+            }
+            
+            locations_response = self.openaq_session.get(locations_url, params=locations_params, timeout=30)
+            
+            # Handle 410 (deprecated) or other errors
+            if locations_response.status_code == 410:
+                print(f"  ⚠ OpenAQ API v3 endpoint not available (410 error)")
+                print(f"  OpenAQ API may require authentication or have changed.")
+                return None
+            
+            if locations_response.status_code != 200:
+                print(f"  ⚠ OpenAQ API error: {locations_response.status_code}")
+                return None
+            
+            locations_data = locations_response.json()
+            locations = locations_data.get('results', [])
+            
+            if not locations:
+                return None
+            
+            # Get location IDs
+            location_ids = [loc.get('id') for loc in locations if loc.get('id')]
+            
+            if not location_ids:
+                return None
+            
+            # Now get measurements for these locations
+            url = f"{self.openaq_base_url}/measurements"
+            all_measurements = []
+            
+            # Query each location (limit to first 5 to avoid too many requests)
+            for location_id in location_ids[:5]:
+                params = {
+                    'locations_id': location_id,  # v3 uses 'locations_id'
+                    'parameters_id': openaq_param,
+                    'date_from': start_date.strftime('%Y-%m-%d'),
+                    'date_to': end_date.strftime('%Y-%m-%d'),
+                    'limit': 10000
+                }
+                
+                page = 1
+                while True:
+                    params['page'] = page
+                    response = self.openaq_session.get(url, params=params, timeout=30)
+                    
+                    if response.status_code == 410:
+                        print(f"  ⚠ OpenAQ API endpoint deprecated")
+                        return None
+                    
+                    if response.status_code != 200:
+                        break  # Skip this location if error
+                    
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    results = data.get('results', [])
+                    if not results:
+                        break
+                    
+                    all_measurements.extend(results)
+                    
+                    # Check if there are more pages
+                    meta = data.get('meta', {})
+                    found = meta.get('found', 0)
+                    limit = meta.get('limit', 10000)
+                    if found == 0 or page * limit >= found:
+                        break
+                    
+                    page += 1
+                    time.sleep(0.3)  # Rate limiting
+                
+                time.sleep(0.3)  # Rate limiting between locations
+            
+            if not all_measurements:
+                return None
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(all_measurements)
+            
+            # Standardize column names
+            column_mapping = {
+                'date': 'datetime',
+                'date.utc': 'datetime_utc',
+                'parameter': 'pollutant',
+                'value': 'value',
+                'unit': 'unit',
+                'location': 'station_name',
+                'locationId': 'station_code',
+                'coordinates.latitude': 'lat',
+                'coordinates.longitude': 'lon'
+            }
+            
+            # Rename columns that exist
+            for old_col, new_col in column_mapping.items():
+                if old_col in df.columns:
+                    df = df.rename(columns={old_col: new_col})
+            
+            # Map pollutant codes to our standard names
+            pollutant_reverse_map = {v: k for k, v in self.pollutant_mapping.items()}
+            if 'pollutant' in df.columns:
+                df['pollutant'] = df['pollutant'].map(
+                    lambda x: pollutant_reverse_map.get(x, x.upper())
+                )
+            
+            # Add city information
+            df['city'] = city['name']
+            df['city_key'] = city_key
+            
+            # Parse datetime
+            if 'datetime' in df.columns:
+                df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+                df['date'] = df['datetime'].dt.date
+                df['hour'] = df['datetime'].dt.hour
+            
+            # Pivot to have pollutants as columns
+            if 'pollutant' in df.columns and 'value' in df.columns:
+                # Ensure required index columns exist
+                index_cols = ['city', 'city_key', 'datetime', 'date', 'hour']
+                available_index_cols = [col for col in index_cols if col in df.columns]
+                
+                # Add station info if available
+                if 'station_name' in df.columns:
+                    available_index_cols.append('station_name')
+                if 'station_code' in df.columns:
+                    available_index_cols.append('station_code')
+                
+                if available_index_cols:
+                    pivot_df = df.pivot_table(
+                        index=available_index_cols,
+                        columns='pollutant',
+                        values='value',
+                        aggfunc='mean'  # Average if multiple measurements per hour
+                    ).reset_index()
+                    
+                    # Rename pollutant columns to lowercase
+                    pivot_df.columns.name = None
+                    for col in pivot_df.columns:
+                        if col in ['NO2', 'PM2.5', 'PM10', 'O3', 'CO']:
+                            pivot_df = pivot_df.rename(columns={col: col.lower().replace('.', '')})
+                    
+                    return pivot_df
+            
+            return df
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 410:
+                print(f"  ⚠ OpenAQ API endpoint deprecated (410 Gone)")
+                print(f"  OpenAQ API structure has changed. Please use manual CSV download.")
+            else:
+                print(f"  Error fetching OpenAQ data for {city['name']}, {pollutant}: {e}")
+            return None
+        except Exception as e:
+            print(f"  Error fetching OpenAQ data for {city['name']}, {pollutant}: {e}")
+            return None
     
     def download_from_csv(self, filepath: str, city_key: str, 
                          save_processed: bool = True) -> Optional[pd.DataFrame]:
@@ -218,7 +409,8 @@ class AirQualityCollector:
     
     def collect_air_quality_data(self, start_date: datetime, end_date: datetime,
                                 city_keys: Optional[List[str]] = None,
-                                pollutants: Optional[List[str]] = None) -> pd.DataFrame:
+                                pollutants: Optional[List[str]] = None,
+                                use_openaq: bool = True) -> pd.DataFrame:
         """
         Collect air quality data for multiple cities and pollutants.
         
@@ -227,6 +419,7 @@ class AirQualityCollector:
             end_date: End date
             city_keys: List of city keys (None = all cities)
             pollutants: List of pollutants (None = all: NO2, PM2.5, PM10, O3, CO)
+            use_openaq: Whether to use OpenAQ API (default: True)
             
         Returns:
             DataFrame with air quality data
@@ -242,22 +435,55 @@ class AirQualityCollector:
         print(f"Collecting air quality data from {start_date.date()} to {end_date.date()}")
         print(f"Cities: {', '.join([self.cities[k]['name'] for k in city_keys])}")
         print(f"Pollutants: {', '.join(pollutants)}")
-        print("\nNOTE: EEA data collection may require manual download.")
-        print("Please download CSV files from EEA portal and use download_from_csv() method.")
         
-        # Try to download for each city and pollutant
-        for city_key in city_keys:
-            for pollutant in pollutants:
-                data = self.download_eea_data_direct(city_key, pollutant, start_date, end_date)
+        if use_openaq:
+            print("\n⚠ Attempting OpenAQ API (Note: OpenAQ API v2 is deprecated, v3 may have different structure)")
+            print("If this fails, please use manual CSV download from EEA portal.\n")
+            
+            # Try OpenAQ API first
+            for city_key in city_keys:
+                city_name = self.cities[city_key]['name']
+                print(f"Fetching data for {city_name}...")
                 
-                if data is not None and not data.empty:
-                    all_data.append(data)
+                # Get all pollutants for this city
+                city_data = []
+                for pollutant in pollutants:
+                    print(f"  Getting {pollutant}...", end=' ')
+                    data = self.get_openaq_measurements(city_key, pollutant, start_date, end_date)
+                    
+                    if data is not None and not data.empty:
+                        city_data.append(data)
+                        print(f"✓ ({len(data)} records)")
+                    else:
+                        print("✗ (no data)")
+                    
+                    time.sleep(0.3)  # Rate limiting
                 
-                time.sleep(0.5)  # Rate limiting
+                # Combine pollutants for this city
+                if city_data:
+                    # Merge on common columns
+                    from functools import reduce
+                    city_df = reduce(lambda left, right: pd.merge(
+                        left, right, 
+                        on=['city', 'city_key', 'datetime', 'date', 'hour', 'station_name', 'station_code'],
+                        how='outer'
+                    ), city_data)
+                    all_data.append(city_df)
+                    print(f"  ✓ Collected data for {city_name}\n")
+                else:
+                    print(f"  ⚠ No data found for {city_name}\n")
+        else:
+            print("\nNOTE: OpenAQ disabled. EEA data requires manual CSV download.")
+            print("Please download CSV files from EEA portal and use download_from_csv() method.")
         
         if not all_data:
             print("\nNo data collected via API.")
-            print("Please download data manually from EEA portal and use download_from_csv() method.")
+            if use_openaq:
+                print("You can try:")
+                print("1. Check if OpenAQ has data for your date range")
+                print("2. Use download_from_csv() method with manually downloaded EEA CSV files")
+            else:
+                print("Please download data manually from EEA portal and use download_from_csv() method.")
             return pd.DataFrame()
         
         df = pd.concat(all_data, ignore_index=True)
@@ -300,16 +526,12 @@ def main():
     start_date, end_date = get_date_range()
     
     print("=" * 60)
-    print("EEA Air Quality Data Collection")
+    print("Air Quality Data Collection")
     print("=" * 60)
-    print("\nNOTE: EEA data may require manual download from their portal.")
-    print("Visit: https://www.eea.europa.eu/data-and-maps/data/air-quality-observations")
-    print("\nAlternatively, you can:")
-    print("1. Download CSV files manually and use download_from_csv() method")
-    print("2. Use EEA REST API if available")
-    print("3. Check for Python packages that interface with EEA data\n")
+    print("\nUsing OpenAQ API (free, aggregates data from EEA and other sources)")
+    print("No API key required!\n")
     
-    df = collector.collect_air_quality_data(start_date, end_date)
+    df = collector.collect_air_quality_data(start_date, end_date, use_openaq=True)
     
     if not df.empty:
         collector.save_air_quality_data(df)

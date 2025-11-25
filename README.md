@@ -2,6 +2,8 @@
 
 This project prepares data for analyzing how weather conditions and traffic density affect air pollution in major German cities.
 
+> **📖 For detailed team documentation, see [TEAM_DOCUMENTATION.md](TEAM_DOCUMENTATION.md)**
+
 ## Research Question
 How do weather conditions (temperature, humidity, wind) and traffic density relate to air pollutants (NO2, PM2.5, PM10, O3) in major German cities?
 
@@ -91,13 +93,11 @@ python scripts/main.py --report
 
 ## Data Sources
 
-### 1. OpenWeatherMap API
+### 1. Meteostat API
 - **Purpose**: Historical weather data (temperature, humidity, wind speed, precipitation)
-- **API Key**: Required (get from https://openweathermap.org/api)
-- **Note**: Free tier has limited historical data access. For true historical data, consider:
-  - OpenWeatherMap One Call API 3.0 (paid subscription)
-  - Meteostat API (free historical weather data)
-  - Weather Underground API
+- **API Key**: Not required (free service)
+- **Note**: Meteostat provides free access to historical weather data from weather stations worldwide
+- **Website**: https://meteostat.net/
 
 ### 2. European Environment Agency (EEA)
 - **Purpose**: Air quality data (NO2, PM2.5, PM10, O3, CO) from monitoring stations

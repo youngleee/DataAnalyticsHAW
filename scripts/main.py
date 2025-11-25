@@ -51,13 +51,26 @@ def collect_data():
     # Collect air quality data
     print("\n--- Collecting Air Quality Data ---")
     aq_collector = AirQualityCollector()
-    aq_df = aq_collector.collect_air_quality_data(start_date, end_date)
+    
+    # Try OpenAQ API first (may not work due to API changes)
+    print("Attempting OpenAQ API (may fail due to API changes)...")
+    aq_df = aq_collector.collect_air_quality_data(start_date, end_date, use_openaq=True)
+    
     if not aq_df.empty:
         aq_collector.save_air_quality_data(aq_df)
         print("\n✓ Air quality data saved. You can inspect the CSV file before running cleaning.")
     else:
-        print("NOTE: Air quality data collection may require manual download.")
-        print("Please download CSV files from EEA portal and use download_from_csv() method.")
+        print("\n⚠ OpenAQ API did not return data (API may be deprecated or changed).")
+        print("\nRECOMMENDED: Use manual CSV download from EEA:")
+        print("1. Visit: https://www.eea.europa.eu/data-and-maps/data/air-quality-observations")
+        print("2. Download CSV files for your cities and date range")
+        print("3. Use the helper script:")
+        print("   python scripts/load_air_quality_data.py")
+        print("\nOr in Python:")
+        print("   from scripts.collect.air_quality_collector import AirQualityCollector")
+        print("   collector = AirQualityCollector()")
+        print("   df = collector.download_from_csv('path/to/file.csv', 'berlin')")
+        print("\nThe pipeline will continue without air quality data for now.")
     
     # Collect traffic data
     print("\n--- Collecting Traffic Data ---")
