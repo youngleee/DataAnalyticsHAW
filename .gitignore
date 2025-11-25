@@ -25,13 +25,13 @@ wheels/
 *.egg
 
 # Data files
-data/raw/
-data/processed/
-*.csv
-*.parquet
-*.json
-*.xlsx
-*.xls
+#data/raw/
+#data/processed/
+#*.csv
+#*.parquet
+#*.json
+#*.xlsx
+#*.xls
 
 # API keys and secrets
 .env
