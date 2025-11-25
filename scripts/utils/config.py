@@ -64,7 +64,7 @@ def get_tomtom_key() -> str:
     return os.getenv('TOMTOM_API_KEY', '')
 
 def get_openaq_key() -> str:
-    """Get OpenAQ API key (required for v3 API)."""
+    """Get OpenAQ API key (deprecated - using UBA API now)."""
     return os.getenv('OPENAQ_API_KEY', '')
 
 def get_date_range() -> Tuple[datetime, datetime]:

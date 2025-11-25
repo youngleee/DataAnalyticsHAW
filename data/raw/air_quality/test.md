@@ -1,35 +1,46 @@
-# OpenAQ API v3 Setup Guide
+# UBA (Umweltbundesamt) API Setup Guide
 
 ## Overview
-OpenAQ API v3 provides access to global air quality data. Version 1 and 2 were retired on January 31, 2025.
+The UBA (Umweltbundesamt) API is the official German government source for air quality data. It provides access to over 400 monitoring stations across Germany.
 
-## Getting Started
+## Key Features
+- **Official Source**: German government data
+- **Free**: No API key required
+- **Comprehensive**: Over 400 monitoring stations
+- **Real-time & Historical**: Both current and historical data
+- **Covers Major Cities**: Berlin, Munich, Hamburg, Cologne, Frankfurt, and more
+- **Multiple Pollutants**: PM2.5, PM10, NO2, O3, CO, SO2
 
-### 1. Register for an API Key
-- Visit: https://explore.openaq.org/register
-- Create an account and get your API key
+## API Information
+- **Base URL**: `https://luftqualitaet.api.bund.dev`
+- **Documentation**: https://luftqualitaet.api.bund.dev/
+- **Main Portal**: https://luftdaten.umweltbundesamt.de/en
+- **API Versions**: v2, v3, v4 available
 
-### 2. Configure API Key
-Add your API key to your `.env` file:
+## Usage
+The `air_quality_collector.py` script automatically uses the UBA API. No configuration needed!
+
+## Example Endpoint
 ```
-OPENAQ_API_KEY=your_openaq_api_key_here
+https://luftqualitaet.api.bund.dev/api/air_data/v2/airquality/json?component=NO2&date_from=2023-01-01&date_to=2023-01-08
 ```
 
-### 3. API Features
-- Real-time and historical air quality data
-- Global coverage (100+ countries)
-- Pollutants: PM2.5, PM10, NO2, O3, CO, SO2, BC, and more
-- Hourly, daily, and yearly averaged measurements
-- Bounding box queries
+## Pollutants Supported
+- NO2 (Nitrogen Dioxide)
+- PM2.5 (Particulate Matter 2.5)
+- PM10 (Particulate Matter 10)
+- O3 (Ozone)
+- CO (Carbon Monoxide)
+- SO2 (Sulfur Dioxide)
 
-### 4. Usage
-The `air_quality_collector.py` script will automatically use your API key if configured.
-
-### 5. Fallback Options
-If API key is not available, you can:
-- Use `download_from_csv()` method with manually downloaded EEA CSV files
-- Download data from EEA portal: https://www.eea.europa.eu/data-and-maps/data/air-quality-database
+## Fallback Options
+If API access fails, you can:
+- Use `download_from_csv()` method with manually downloaded CSV files
+- Download data from UBA portal: https://luftdaten.umweltbundesamt.de/en
+- Download from EEA portal: https://www.eea.europa.eu/data-and-maps/data/air-quality-database
 
 ## Documentation
-- OpenAQ API v3 Docs: https://docs.openaq.org/
-- API Reference: https://docs.openaq.org/reference/get_locations
+- UBA API Docs: https://luftqualitaet.api.bund.dev/
+- UBA Portal: https://luftdaten.umweltbundesamt.de/en
+- API v3 Documentation: https://www.umweltbundesamt.de/daten/luft/luftdaten/doc
+- API v4 Documentation: https://www.umweltbundesamt.de/daten/luft/luftdaten/doc-v4

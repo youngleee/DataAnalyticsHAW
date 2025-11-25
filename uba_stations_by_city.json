@@ -1,0 +1,540 @@
+{
+  "Berlin": [
+    {
+      "station_id": "121",
+      "station_code": "DEBE010",
+      "station_name": "Berlin Wedding",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1984-11-01",
+      "date_to": null,
+      "longitude": "13.3493",
+      "latitude": "52.5430"
+    },
+    {
+      "station_id": "138",
+      "station_code": "DEBE027",
+      "station_name": "Berlin Marienfelde",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1989-04-01",
+      "date_to": null,
+      "longitude": "13.3681",
+      "latitude": "52.3984"
+    },
+    {
+      "station_id": "143",
+      "station_code": "DEBE032",
+      "station_name": "Berlin Grunewald (3.5 m)",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1986-10-01",
+      "date_to": null,
+      "longitude": "13.2251",
+      "latitude": "52.4732"
+    },
+    {
+      "station_id": "145",
+      "station_code": "DEBE034",
+      "station_name": "Berlin Neukölln",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1986-03-01",
+      "date_to": null,
+      "longitude": "13.4308",
+      "latitude": "52.4895"
+    },
+    {
+      "station_id": "158",
+      "station_code": "DEBE051",
+      "station_name": "Berlin Buch",
+      "city": "Berlin",
+      "state_code": "MC077",
+      "date_from": "2017-07-24",
+      "date_to": null,
+      "longitude": "13.4831",
+      "latitude": "52.6442"
+    },
+    {
+      "station_id": "163",
+      "station_code": "DEBE056",
+      "station_name": "Berlin Friedrichshagen",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1994-02-01",
+      "date_to": null,
+      "longitude": "13.6471",
+      "latitude": "52.4477"
+    },
+    {
+      "station_id": "169",
+      "station_code": "DEBE062",
+      "station_name": "Berlin Frohnau (3.5 m)",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1996-02-01",
+      "date_to": null,
+      "longitude": "13.2961",
+      "latitude": "52.6533"
+    },
+    {
+      "station_id": "172",
+      "station_code": "DEBE065",
+      "station_name": "Berlin Frankfurter Allee",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1993-09-01",
+      "date_to": null,
+      "longitude": "13.4699",
+      "latitude": "52.5141"
+    },
+    {
+      "station_id": "129",
+      "station_code": "DEBE018",
+      "station_name": "Berlin Schöneberg",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1986-11-01",
+      "date_to": "2024-12-31",
+      "longitude": "13.3488",
+      "latitude": "52.4858"
+    },
+    {
+      "station_id": "168",
+      "station_code": "DEBE061",
+      "station_name": "Berlin Schildhornstraße",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1994-11-01",
+      "date_to": null,
+      "longitude": "13.3183",
+      "latitude": "52.4636"
+    },
+    {
+      "station_id": "170",
+      "station_code": "DEBE063",
+      "station_name": "Berlin Silbersteinstraße 1",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1996-05-01",
+      "date_to": "2024-01-05",
+      "longitude": "13.4417",
+      "latitude": "52.4675"
+    },
+    {
+      "station_id": "173",
+      "station_code": "DEBE066",
+      "station_name": "Berlin Karlshorst",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "1999-07-01",
+      "date_to": null,
+      "longitude": "13.5295",
+      "latitude": "52.4853"
+    },
+    {
+      "station_id": "174",
+      "station_code": "DEBE067",
+      "station_name": "Berlin Hardenbergplatz",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "2004-01-01",
+      "date_to": "2024-12-31",
+      "longitude": "13.3330",
+      "latitude": "52.5066"
+    },
+    {
+      "station_id": "175",
+      "station_code": "DEBE068",
+      "station_name": "Berlin Mitte",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "2003-01-01",
+      "date_to": null,
+      "longitude": "13.4188",
+      "latitude": "52.5136"
+    },
+    {
+      "station_id": "176",
+      "station_code": "DEBE069",
+      "station_name": "Berlin Mariendorfer Damm",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "2009-01-01",
+      "date_to": null,
+      "longitude": "13.3877",
+      "latitude": "52.4381"
+    },
+    {
+      "station_id": "9480",
+      "station_code": "DEBE125",
+      "station_name": "Berlin Leipziger Straße (MC)",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "2020-03-26",
+      "date_to": null,
+      "longitude": "13.3824",
+      "latitude": "52.5098"
+    },
+    {
+      "station_id": "9556",
+      "station_code": "DEBE126",
+      "station_name": "Berlin Karl-Marx-Straße II",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "2021-06-08",
+      "date_to": null,
+      "longitude": "13.4297",
+      "latitude": "52.4838"
+    },
+    {
+      "station_id": "10347",
+      "station_code": "DEBE127",
+      "station_name": "Berlin Silbersteinstraße 5",
+      "city": "Berlin",
+      "state_code": "",
+      "date_from": "2023-01-01",
+      "date_to": null,
+      "longitude": "13.4412",
+      "latitude": "52.4675"
+    }
+  ],
+  "Munich": [
+    {
+      "station_id": "471",
+      "station_code": "DEBY037",
+      "station_name": "München/Stachus",
+      "city": "München",
+      "state_code": "",
+      "date_from": "1978-01-01",
+      "date_to": null,
+      "longitude": "11.5649",
+      "latitude": "48.1373"
+    },
+    {
+      "station_id": "473",
+      "station_code": "DEBY039",
+      "station_name": "München/Lothstraße",
+      "city": "München",
+      "state_code": "",
+      "date_from": "1978-01-01",
+      "date_to": null,
+      "longitude": "11.5547",
+      "latitude": "48.1545"
+    },
+    {
+      "station_id": "523",
+      "station_code": "DEBY089",
+      "station_name": "München/Johanneskirchen",
+      "city": "München, Stadtteil Johanneskirchen",
+      "state_code": "",
+      "date_from": "1993-07-01",
+      "date_to": null,
+      "longitude": "11.6480",
+      "latitude": "48.1732"
+    },
+    {
+      "station_id": "609",
+      "station_code": "DEBY189",
+      "station_name": "München/Allach",
+      "city": "München",
+      "state_code": "",
+      "date_from": "2014-01-28",
+      "date_to": null,
+      "longitude": "11.4645",
+      "latitude": "48.1817"
+    },
+    {
+      "station_id": "535",
+      "station_code": "DEBY115",
+      "station_name": "München/Landshuter Allee",
+      "city": "München",
+      "state_code": "",
+      "date_from": "2004-07-01",
+      "date_to": null,
+      "longitude": "11.5365",
+      "latitude": "48.1496"
+    }
+  ],
+  "Hamburg": [
+    {
+      "station_id": "784",
+      "station_code": "DEHH008",
+      "station_name": "Hamburg Sternschanze",
+      "city": "Hamburg",
+      "state_code": "",
+      "date_from": "1984-03-01",
+      "date_to": null,
+      "longitude": "9.9679",
+      "latitude": "53.5641"
+    },
+    {
+      "station_id": "823",
+      "station_code": "DEHH047",
+      "station_name": "Hamburg Bramfeld",
+      "city": "Hamburg",
+      "state_code": "51BF",
+      "date_from": "1998-04-01",
+      "date_to": "2025-01-15",
+      "longitude": "10.1106",
+      "latitude": "53.6307"
+    },
+    {
+      "station_id": "826",
+      "station_code": "DEHH050",
+      "station_name": "Hamburg Neugraben",
+      "city": "Hamburg",
+      "state_code": "52NG",
+      "date_from": "1998-07-01",
+      "date_to": null,
+      "longitude": "9.8572",
+      "latitude": "53.4809"
+    },
+    {
+      "station_id": "1719",
+      "station_code": "DEST002",
+      "station_name": "Burg",
+      "city": "Burg",
+      "state_code": "",
+      "date_from": "2020-01-22",
+      "date_to": null,
+      "longitude": "11.8648",
+      "latitude": "52.2684"
+    },
+    {
+      "station_id": "10466",
+      "station_code": "DEHH083",
+      "station_name": "Hamburg Bergstedt",
+      "city": "Hamburg",
+      "state_code": "84BS",
+      "date_from": "2024-10-30",
+      "date_to": null,
+      "longitude": "10.1164",
+      "latitude": "53.6828"
+    },
+    {
+      "station_id": "791",
+      "station_code": "DEHH015",
+      "station_name": "Hamburg Veddel",
+      "city": "Hamburg",
+      "state_code": "",
+      "date_from": "1984-07-01",
+      "date_to": null,
+      "longitude": "10.0212",
+      "latitude": "53.5233"
+    },
+    {
+      "station_id": "792",
+      "station_code": "DEHH016",
+      "station_name": "Hamburg Billbrook",
+      "city": "Hamburg",
+      "state_code": "21BI",
+      "date_from": "1985-01-01",
+      "date_to": "2024-01-17",
+      "longitude": "10.0817",
+      "latitude": "53.5290"
+    },
+    {
+      "station_id": "802",
+      "station_code": "DEHH026",
+      "station_name": "Hamburg Stresemannstraße",
+      "city": "Hamburg",
+      "state_code": "",
+      "date_from": "1991-10-24",
+      "date_to": null,
+      "longitude": "9.9572",
+      "latitude": "53.5606"
+    },
+    {
+      "station_id": "835",
+      "station_code": "DEHH059",
+      "station_name": "Hamburg Wilhelmsburg",
+      "city": "Hamburg",
+      "state_code": "61WB",
+      "date_from": "2000-04-03",
+      "date_to": null,
+      "longitude": "9.9906",
+      "latitude": "53.5079"
+    },
+    {
+      "station_id": "840",
+      "station_code": "DEHH064",
+      "station_name": "Hamburg Kieler Straße",
+      "city": "Hamburg",
+      "state_code": "64KS",
+      "date_from": "2001-05-31",
+      "date_to": null,
+      "longitude": "9.9446",
+      "latitude": "53.5644"
+    },
+    {
+      "station_id": "844",
+      "station_code": "DEHH068",
+      "station_name": "Hamburg Habichtstraße",
+      "city": "Hamburg",
+      "state_code": "68HB",
+      "date_from": "2001-12-31",
+      "date_to": null,
+      "longitude": "10.0539",
+      "latitude": "53.5923"
+    },
+    {
+      "station_id": "846",
+      "station_code": "DEHH070",
+      "station_name": "Hamburg Max-Brauer-Allee II (Straße)",
+      "city": "Hamburg",
+      "state_code": "70MB",
+      "date_from": "2002-02-12",
+      "date_to": null,
+      "longitude": "9.9430",
+      "latitude": "53.5557"
+    },
+    {
+      "station_id": "855",
+      "station_code": "DEHH079",
+      "station_name": "Hamburg Altona Elbhang",
+      "city": "Hamburg",
+      "state_code": "80KT",
+      "date_from": "2011-12-08",
+      "date_to": null,
+      "longitude": "9.9448",
+      "latitude": "53.5453"
+    },
+    {
+      "station_id": "857",
+      "station_code": "DEHH081",
+      "station_name": "Hamburg Hafen",
+      "city": "Hamburg",
+      "state_code": "",
+      "date_from": "2015-09-29",
+      "date_to": null,
+      "longitude": "9.9816",
+      "latitude": "53.5292"
+    },
+    {
+      "station_id": "10348",
+      "station_code": "DEHH082",
+      "station_name": "Hamburg Niendorf",
+      "city": "Hamburg",
+      "state_code": "83NI",
+      "date_from": "2024-01-01",
+      "date_to": null,
+      "longitude": "9.9614",
+      "latitude": "53.6222"
+    }
+  ],
+  "Cologne": [
+    {
+      "station_id": "1108",
+      "station_code": "DENW053",
+      "station_name": "Köln-Chorweiler",
+      "city": "Köln",
+      "state_code": "CHOR",
+      "date_from": "1981-01-01",
+      "date_to": null,
+      "longitude": "6.8846",
+      "latitude": "51.0193"
+    },
+    {
+      "station_id": "1114",
+      "station_code": "DENW059",
+      "station_name": "Köln-Rodenkirchen",
+      "city": "Köln",
+      "state_code": "RODE",
+      "date_from": "1980-12-01",
+      "date_to": null,
+      "longitude": "6.9851",
+      "latitude": "50.8899"
+    },
+    {
+      "station_id": "1254",
+      "station_code": "DENW211",
+      "station_name": "Köln Clevischer Ring",
+      "city": "Köln",
+      "state_code": "",
+      "date_from": "2006-05-06",
+      "date_to": null,
+      "longitude": "7.0046",
+      "latitude": "50.9628"
+    },
+    {
+      "station_id": "1255",
+      "station_code": "DENW212",
+      "station_name": "Köln Turiner Straße",
+      "city": "Köln",
+      "state_code": "VKTU",
+      "date_from": "2007-03-29",
+      "date_to": null,
+      "longitude": "6.9576",
+      "latitude": "50.9473"
+    }
+  ],
+  "Frankfurt": [
+    {
+      "station_id": "90",
+      "station_code": "DEBB092",
+      "station_name": "Frankfurt (Oder)",
+      "city": "Frankfurt (Oder)",
+      "state_code": "FFIS",
+      "date_from": "2013-10-01",
+      "date_to": null,
+      "longitude": "14.5260",
+      "latitude": "52.3347"
+    },
+    {
+      "station_id": "633",
+      "station_code": "DEHE005",
+      "station_name": "Frankfurt-Höchst",
+      "city": "Frankfurt",
+      "state_code": "",
+      "date_from": "1979-01-01",
+      "date_to": null,
+      "longitude": "8.5425",
+      "latitude": "50.1018"
+    },
+    {
+      "station_id": "636",
+      "station_code": "DEHE008",
+      "station_name": "Frankfurt Ost",
+      "city": "Frankfurt",
+      "state_code": "",
+      "date_from": "1984-01-01",
+      "date_to": null,
+      "longitude": "8.7463",
+      "latitude": "50.1253"
+    },
+    {
+      "station_id": "763",
+      "station_code": "DEHE135",
+      "station_name": "Frankfurt-Schwanheim",
+      "city": "Frankfurt am Main",
+      "state_code": "",
+      "date_from": "2017-08-02",
+      "date_to": null,
+      "longitude": "8.5763",
+      "latitude": "50.0755"
+    },
+    {
+      "station_id": "43",
+      "station_code": "DEBB045",
+      "station_name": "Frankfurt (Oder), Leipziger Str.",
+      "city": "Frankfurt (Oder)",
+      "state_code": "FFLS",
+      "date_from": "1995-08-01",
+      "date_to": null,
+      "longitude": "14.5386",
+      "latitude": "52.3373"
+    },
+    {
+      "station_id": "669",
+      "station_code": "DEHE041",
+      "station_name": "Frankfurt Friedberger Landstraße",
+      "city": "Frankfurt",
+      "state_code": "",
+      "date_from": "1993-03-01",
+      "date_to": null,
+      "longitude": "8.6919",
+      "latitude": "50.1246"
+    }
+  ]
+}
