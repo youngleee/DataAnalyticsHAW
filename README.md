@@ -91,6 +91,12 @@ python scripts/main.py --features
 python scripts/main.py --report
 ```
 
+## Documentation
+
+- **[API Documentation](API_DOCUMENTATION.md)** - Comprehensive guide to all APIs, data formats, and usage examples
+- **[Team Documentation](TEAM_DOCUMENTATION.md)** - Project structure and team guidelines
+- **[Quick Start Guide](QUICKSTART.md)** - Get started quickly
+
 ## Data Sources
 
 ### 1. Meteostat API
