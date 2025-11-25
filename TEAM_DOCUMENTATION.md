@@ -4,7 +4,7 @@
 
 This project prepares data for analyzing how weather conditions and traffic density affect air pollution in major German cities.
 
-**Research Question:** How do weather conditions (temperature, humidity, wind) and traffic density relate to air pollutants (NO2, PM2.5, PM10, O3) in major German cities?
+**Research Question:** How do weather conditions (temperature, humidity, wind) and traffic density relate to air pollutants (NO2, PM10, O3) in major German cities?
 
 **Target Cities:**
 - Berlin
@@ -13,7 +13,7 @@ This project prepares data for analyzing how weather conditions and traffic dens
 - Cologne (Köln)
 - Frankfurt am Main
 
-**Time Period:** January 1-7, 2023 (configurable in `.env` file)
+**Time Period:** Configurable in `.env` file (default: 2023-01-01 to 2023-01-07)
 
 ---
 
@@ -81,50 +81,42 @@ python scripts/main.py --report     # Generate reports
   - Precipitation (mm)
 - **How it works:** Automatically finds nearest weather stations to each city and retrieves historical data
 
-### 2. Air Quality Data - OpenAQ/EEA ⚠️
+### 2. Air Quality Data - UBA API ✅
 
-- **Status:** OpenAQ API deprecated, manual download recommended
-- **API Key:** Not required (but API doesn't work reliably)
-- **Sources:**
-  - OpenAQ API (attempted, but v2 deprecated, v3 may have issues)
-  - EEA Portal (manual CSV download - **RECOMMENDED**)
-- **Data Needed:**
-  - NO2 (μg/m³)
-  - PM2.5 (μg/m³)
-  - PM10 (μg/m³)
-  - O3 (μg/m³)
-  - CO (μg/m³)
+- **Status:** Working (automated collection)
+- **API Key:** Not required (free, official German government source)
+- **Source:** Umweltbundesamt (UBA) - Official German Federal Environment Agency
+- **Documentation:** https://luftqualitaet.api.bund.dev/
+- **Main Portal:** https://luftdaten.umweltbundesamt.de/en
+- **Data Collected:**
+  - NO2 (μg/m³) - Nitrogen Dioxide
+  - PM10 (μg/m³) - Particulate Matter 10
+  - O3 (μg/m³) - Ozone
+- **Coverage:** Over 400 monitoring stations across Germany
+- **How it works:** 
+  - Automatically discovers stations for each city
+  - Collects data from multiple stations per city
+  - Aggregates measurements to daily averages
+  - No manual intervention required
 
-**How to get air quality data:**
+**Files saved in:** `data/raw/air_quality/` (both CSV and Parquet)
 
-1. **Manual Download (Recommended):**
-   - Visit: https://www.eea.europa.eu/data-and-maps/data/air-quality-observations
-   - Select: Germany → Your city → Pollutants → Date range
-   - Download CSV files
-   - Use helper script:
-     ```bash
-     python scripts/load_air_quality_data.py
-     ```
-   - Or in Python:
-     ```python
-     from scripts.collect.air_quality_collector import AirQualityCollector
-     collector = AirQualityCollector()
-     df = collector.download_from_csv('path/to/file.csv', 'berlin')
-     ```
+### 3. Traffic Data - TomTom API ✅
 
-2. **Files will be saved in:** `data/raw/air_quality/` (both CSV and Parquet)
-
-### 3. Traffic Data - Synthetic Generation ✅
-
-- **Status:** Working (synthetic data)
-- **API Key:** Optional (TomTom API, but synthetic data is used by default)
-- **Data Generated:**
+- **Status:** Working (real data when API key available, synthetic fallback)
+- **API Key:** Optional (TomTom API key in `.env` file)
+- **Registration:** https://developer.tomtom.com/
+- **Data Collected:**
   - Traffic index (0-100)
   - Congestion level (0-1)
-  - Realistic patterns based on:
-    - Day of week (weekday vs weekend)
-    - Time of day (rush hours: 7-9 AM, 5-7 PM)
-    - Seasonal variations
+  - Current speed (km/h)
+  - Free flow speed (km/h)
+  - Confidence level
+- **Fallback:** If no API key or API unavailable, generates realistic synthetic data based on:
+  - Day of week (weekday vs weekend)
+  - Time of day (rush hours: 7-9 AM, 5-7 PM)
+  - Seasonal variations
+- **Note:** Real traffic data requires TomTom API key and may need subscription for historical data
 
 ---
 
@@ -141,8 +133,10 @@ DataAnalyticsHAW/
 ├── scripts/
 │   ├── collect/                # Data collection scripts
 │   │   ├── weather_collector.py      # Meteostat API
-│   │   ├── air_quality_collector.py  # OpenAQ/EEA
-│   │   └── traffic_collector.py      # Synthetic data
+│   │   ├── air_quality_collector.py  # UBA API
+│   │   └── traffic_collector.py      # TomTom API / Synthetic
+│   ├── analyze/                # Analysis scripts
+│   │   └── correlation_analysis.py  # Correlation analysis
 │   ├── clean/                  # Data cleaning
 │   │   └── data_cleaner.py
 │   ├── transform/              # Data transformation
@@ -155,7 +149,6 @@ DataAnalyticsHAW/
 │   │   └── quality_report.py
 │   ├── utils/                  # Helper functions
 │   ├── main.py                 # Main pipeline orchestrator
-│   ├── load_air_quality_data.py  # Helper for manual CSV loading
 │   └── data_dictionary.py     # Generate data dictionary
 ├── outputs/
 │   ├── reports/                # Data quality reports
@@ -174,18 +167,17 @@ DataAnalyticsHAW/
 **Command:** `python scripts/main.py --collect`
 
 **What it does:**
-- Collects weather data from Meteostat
-- Attempts OpenAQ API (usually fails)
-- Generates synthetic traffic data
+- Collects weather data from Meteostat API (real data)
+- Collects air quality data from UBA API (real data, automated)
+- Collects traffic data from TomTom API (real data if API key available, otherwise synthetic)
 - Saves all data in `data/raw/` (both CSV and Parquet)
 
 **Output files:**
-- `data/raw/weather/weather_data_TIMESTAMP.csv`
-- `data/raw/weather/weather_data_TIMESTAMP.parquet`
-- `data/raw/traffic/traffic_data_TIMESTAMP.csv`
-- `data/raw/traffic/traffic_data_TIMESTAMP.parquet`
+- `data/raw/weather/weather_data_TIMESTAMP.csv` and `.parquet`
+- `data/raw/air_quality/air_quality_data_TIMESTAMP.csv` and `.parquet`
+- `data/raw/traffic/traffic_data_TIMESTAMP.csv` and `.parquet`
 
-**Note:** Air quality CSV files need to be loaded manually (see above)
+**Note:** All data collection is automated. No manual downloads required.
 
 ### Step 2: Data Cleaning
 
@@ -265,44 +257,35 @@ DataAnalyticsHAW/
 
 ---
 
-## Working with Air Quality Data
+## Correlation Analysis
 
-Since OpenAQ API is unreliable, here's how to handle air quality data:
+After collecting data, you can run correlation analysis to find relationships between air quality, weather, and traffic:
 
-### Option 1: Use Helper Script (Recommended)
+**Command:** `python scripts/analyze/correlation_analysis.py`
 
-1. Download CSV files from EEA portal
-2. Place them in `data/downloads/` (or any directory)
-3. Run:
-   ```bash
-   python scripts/load_air_quality_data.py
-   ```
-4. Follow the interactive prompts to specify file paths
+**What it does:**
+- Loads and merges all three datasets (air quality, weather, traffic)
+- Calculates correlation matrices
+- Performs statistical significance tests
+- Creates visualizations (heatmaps, scatter plots)
+- Generates regression models
+- Produces comprehensive reports
 
-### Option 2: Python Code
+**Output files (in `outputs/reports/`):**
+- `correlation_heatmap_TIMESTAMP.png` - Full correlation matrix
+- `pollutant_correlations_TIMESTAMP.png` - Pollutants vs predictors
+- `scatter_plots_TIMESTAMP.png` - Key relationships visualized
+- `city_correlations_TIMESTAMP.png` - City-specific patterns
+- `time_analysis_TIMESTAMP.png` - Time-based trends
+- `correlation_report_TIMESTAMP.txt` - Complete text report
 
+**Example usage:**
 ```python
-from scripts.collect.air_quality_collector import AirQualityCollector
+from scripts.analyze.correlation_analysis import CorrelationAnalyzer
 
-collector = AirQualityCollector()
-
-# Load single file
-df = collector.download_from_csv('data/downloads/berlin_air_quality.csv', 'berlin')
-
-# Load multiple files
-filepaths = {
-    'berlin': 'data/downloads/berlin_air_quality.csv',
-    'munich': 'data/downloads/munich_air_quality.csv',
-    'hamburg': 'data/downloads/hamburg_air_quality.csv',
-    'cologne': 'data/downloads/cologne_air_quality.csv',
-    'frankfurt': 'data/downloads/frankfurt_air_quality.csv'
-}
-df = collector.load_multiple_csv_files(filepaths)
+analyzer = CorrelationAnalyzer()
+results = analyzer.run_full_analysis()
 ```
-
-### Option 3: Continue Without Air Quality Data
-
-The pipeline will work with just weather and traffic data. You can add air quality data later and re-run the integration step.
 
 ---
 
@@ -342,24 +325,21 @@ CITY_FRANKFURT=50.1109,8.6821
 
 ## Known Issues & Solutions
 
-### Issue 1: OpenAQ API Returns 410 Errors
-
-**Problem:** OpenAQ API v2 is deprecated, v3 may have different structure
-
-**Solution:** Use manual CSV download from EEA portal (see "Working with Air Quality Data" above)
-
-### Issue 2: Missing Air Quality Data
+### Issue 1: Missing Air Quality Data
 
 **Problem:** No air quality data collected
 
 **Solution:** 
-- Pipeline continues without it
-- Add air quality data later using CSV download method
-- Re-run integration step after adding data
+- Check date range - UBA API may not have data for very recent dates
+- Verify city names match German city names
+- Check network connection
+- Pipeline continues without it if needed
 
-### Issue 3: Traffic Data is Synthetic
+### Issue 2: Traffic Data is Synthetic
 
 **Problem:** Real traffic API may not be available
+
+**Problem:** Real traffic API may not be available or requires subscription
 
 **Solution:** 
 - Synthetic data is realistic and based on patterns
@@ -367,6 +347,8 @@ CITY_FRANKFURT=50.1109,8.6821
   ```env
   TOMTOM_API_KEY=your_key_here
   ```
+- Real traffic data will be collected automatically if API key is available
+- Historical data may require paid TomTom subscription
 
 ---
 
@@ -422,7 +404,8 @@ pip install -r requirements.txt
 **Solution:** 
 - Check your date range in `.env`
 - Verify network connection
-- For air quality: use manual CSV download
+- For air quality: Check UBA API status and date availability
+- For traffic: Check if TomTom API key is set (if using real data)
 
 ### Problem: Memory issues
 **Solution:**
@@ -441,9 +424,9 @@ pip install -r requirements.txt
 
 1. **Collect Data:** Run `python scripts/main.py --collect`
 2. **Inspect Raw Data:** Open CSV files in `data/raw/` to verify
-3. **Add Air Quality Data:** Download from EEA and use helper script
+3. **Run Correlation Analysis:** `python scripts/analyze/correlation_analysis.py`
 4. **Run Full Pipeline:** `python scripts/main.py --all`
-5. **Review Reports:** Check `outputs/reports/` for data quality
+5. **Review Reports:** Check `outputs/reports/` for data quality and correlations
 6. **Use Final Dataset:** Load `outputs/datasets/final_dataset.csv` for analysis
 
 ---
@@ -459,15 +442,24 @@ For questions or issues:
 
 ## Key Points to Remember
 
-1. ✅ **Weather data works automatically** (Meteostat)
-2. ✅ **Traffic data works automatically** (synthetic)
-3. ⚠️ **Air quality data requires manual CSV download** (EEA portal)
+1. ✅ **Weather data works automatically** (Meteostat API - real data)
+2. ✅ **Air quality data works automatically** (UBA API - real data, no API key needed)
+3. ✅ **Traffic data works automatically** (TomTom API if key available, otherwise synthetic)
 4. 📊 **All data saved in both CSV and Parquet** (CSV for inspection, Parquet for processing)
 5. 🔄 **Pipeline continues even if one data source fails**
 6. 📝 **Check reports in `outputs/reports/`** for data quality information
+7. 📈 **Correlation analysis available** - Run `python scripts/analyze/correlation_analysis.py`
+
+---
+
+## Additional Resources
+
+- **[API Documentation](API_DOCUMENTATION.md)** - Comprehensive guide to all APIs, data formats, and usage
+- **[README.md](README.md)** - Project overview and quick start
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
 
 ---
 
 **Last Updated:** November 2024
-**Project Status:** Functional - Weather and Traffic automated, Air Quality requires manual CSV download
+**Project Status:** Fully Functional - All data collection automated (Weather, Air Quality, Traffic)
 

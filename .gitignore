@@ -60,3 +60,6 @@ reports/
 *.html
 *.pdf
 
+# Archive folder (old/test files)
+archive/
+
