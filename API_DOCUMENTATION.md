@@ -30,7 +30,7 @@ This document provides comprehensive information about all APIs used in this pro
 
 #### Base URL
 ```
-https://www.umweltbundesamt.de/api/air_data/v2
+https://www.umweltbundesamt.de/api/air_data/v2 
 ```
 
 #### Key Endpoints

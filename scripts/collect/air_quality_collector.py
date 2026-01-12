@@ -179,8 +179,8 @@ class AirQualityCollector:
             
             all_measurements = []
             
-            # Query each station (limit to first 5 to avoid too many requests)
-            for station in stations[:5]:
+            # Query only the first station per city (to keep data size manageable)
+            for station in stations[:1]:
                 station_id = station.get('station_id')
                 if not station_id:
                     continue

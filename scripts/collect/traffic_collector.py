@@ -32,15 +32,11 @@ class TrafficCollector:
         self.base_url = "https://api.tomtom.com"
         self.cities = get_cities()
         
-        # TomTom city IDs (these may need to be looked up)
-        # You can find city IDs using TomTom's Geocoding API
-        self.city_ids = {
-            'berlin': '52.5200,13.4050',  # Using coordinates as fallback
-            'munich': '48.1351,11.5820',
-            'hamburg': '53.5511,10.0000',
-            'cologne': '50.9375,6.9603',
-            'frankfurt': '50.1109,8.6821'
-        }
+        # TomTom city coordinates (dynamically generated from city config)
+        # Using coordinates as fallback for all cities
+        self.city_ids = {}
+        for city_key, city_info in self.cities.items():
+            self.city_ids[city_key] = f"{city_info['lat']},{city_info['lon']}"
         
     def get_tomtom_traffic_index(self, city_key: str, date: datetime) -> Optional[Dict]:
         """
@@ -145,11 +141,14 @@ class TrafficCollector:
     def create_synthetic_traffic_data(self, city_key: str, start_date: datetime, 
                                      end_date: datetime) -> pd.DataFrame:
         """
-        Create synthetic traffic data based on patterns.
+        Create realistic HOURLY synthetic traffic data based on typical German city patterns.
         
-        This is a fallback method that generates realistic traffic patterns
-        based on day of week, time of day, and seasonal variations.
-        Use this only if real traffic data is unavailable.
+        Generates traffic patterns based on:
+        - Hour of day (rush hours: 7-9 AM, 5-7 PM)
+        - Day of week (weekday vs weekend)
+        - City size (larger cities = more congestion)
+        - German public holidays (Jan-Mar 2024)
+        - Realistic hour-to-hour variation
         
         Args:
             city_key: City key
@@ -157,37 +156,114 @@ class TrafficCollector:
             end_date: End date
             
         Returns:
-            DataFrame with synthetic traffic data
+            DataFrame with HOURLY synthetic traffic data
         """
+        import random
+        import numpy as np
+        
         city = self.cities[city_key]
-        dates = pd.date_range(start=start_date, end=end_date, freq='H')
+        # Generate HOURLY timestamps
+        timestamps = pd.date_range(start=start_date, end=end_date, freq='H')
+        
+        # City size factors (larger cities = more base congestion)
+        city_traffic_base = {
+            'berlin': 40, 'hamburg': 38, 'munich': 42, 'cologne': 36, 
+            'frankfurt': 40, 'stuttgart': 38, 'dusseldorf': 35, 'dortmund': 32,
+            'essen': 30, 'leipzig': 28, 'bremen': 26, 'dresden': 27,
+            'hanover': 29, 'nuremberg': 33, 'duisburg': 28, 'bochum': 26,
+            'wuppertal': 25, 'bielefeld': 24, 'bonn': 28, 'munster': 24,
+        }
+        base_traffic = city_traffic_base.get(city_key, 25 + random.uniform(0, 8))
+        
+        # German public holidays Jan-Mar 2024
+        german_holidays = {
+            '2024-01-01': 'New Year',           # Neujahr
+            '2024-01-06': 'Epiphany',           # Heilige Drei Koenige (some states)
+            '2024-03-29': 'Good Friday',        # Karfreitag
+            '2024-03-31': 'Easter Sunday',      # Ostersonntag
+        }
         
         traffic_data = []
+        np.random.seed(hash(city_key) % 2**32)
         
-        for dt in dates:
-            # Generate traffic index based on patterns
+        # City-specific free flow speed (larger cities slightly slower)
+        city_free_flow = 55 - (base_traffic - 25) * 0.3 + random.uniform(-3, 3)
+        city_free_flow = max(45, min(60, city_free_flow))
+        
+        for dt in timestamps:
+            date_str = dt.strftime('%Y-%m-%d')
             hour = dt.hour
-            day_of_week = dt.weekday()  # 0 = Monday, 6 = Sunday
+            day_of_week = dt.weekday()  # 0=Monday, 6=Sunday
             
-            # Base traffic pattern
-            # Rush hours: 7-9 AM and 5-7 PM on weekdays
-            if day_of_week < 5:  # Weekday
-                if 7 <= hour <= 9 or 17 <= hour <= 19:
-                    base_traffic = 70 + (hour % 3) * 5  # High traffic
-                elif 10 <= hour <= 16:
-                    base_traffic = 40 + (hour % 3) * 3  # Medium traffic
-                else:
-                    base_traffic = 20 + (hour % 3) * 2  # Low traffic
-            else:  # Weekend
-                if 10 <= hour <= 18:
-                    base_traffic = 50 + (hour % 3) * 3  # Medium traffic
-                else:
-                    base_traffic = 25 + (hour % 3) * 2  # Low traffic
+            # Start with base traffic
+            hourly_traffic = base_traffic
             
-            # Add some randomness
-            import random
-            traffic_index = base_traffic + random.uniform(-5, 5)
-            traffic_index = max(0, min(100, traffic_index))  # Clamp to 0-100
+            # HOURLY PATTERNS (the key differentiator!)
+            is_holiday = date_str in german_holidays
+            is_weekend = day_of_week >= 5
+            
+            if is_holiday:
+                # Holidays: very low traffic, similar to Sunday
+                if 10 <= hour <= 17:
+                    hourly_traffic += 5 + np.random.normal(0, 3)
+                else:
+                    hourly_traffic -= 10 + np.random.normal(0, 2)
+            elif is_weekend:
+                # Weekend patterns
+                if day_of_week == 5:  # Saturday
+                    if 10 <= hour <= 14:  # Shopping time
+                        hourly_traffic += 20 + np.random.normal(0, 5)
+                    elif 15 <= hour <= 18:
+                        hourly_traffic += 15 + np.random.normal(0, 5)
+                    elif 6 <= hour <= 9:
+                        hourly_traffic += 5 + np.random.normal(0, 3)
+                    else:
+                        hourly_traffic -= 5 + np.random.normal(0, 3)
+                else:  # Sunday
+                    if 11 <= hour <= 16:
+                        hourly_traffic += 10 + np.random.normal(0, 4)
+                    else:
+                        hourly_traffic -= 10 + np.random.normal(0, 3)
+            else:
+                # WEEKDAY patterns with rush hours
+                if 7 <= hour <= 9:  # Morning rush
+                    if hour == 8:
+                        hourly_traffic += 45 + np.random.normal(0, 6)  # Peak
+                    else:
+                        hourly_traffic += 35 + np.random.normal(0, 5)
+                elif 17 <= hour <= 19:  # Evening rush
+                    if hour == 18:
+                        hourly_traffic += 50 + np.random.normal(0, 6)  # Peak
+                    else:
+                        hourly_traffic += 40 + np.random.normal(0, 5)
+                elif 10 <= hour <= 16:  # Daytime
+                    hourly_traffic += 20 + np.random.normal(0, 5)
+                elif 6 <= hour <= 6:  # Early morning
+                    hourly_traffic += 10 + np.random.normal(0, 3)
+                elif 20 <= hour <= 22:  # Evening
+                    hourly_traffic += 10 + np.random.normal(0, 4)
+                else:  # Night (23:00 - 05:59)
+                    hourly_traffic -= 15 + np.random.normal(0, 3)
+            
+            # Friday adjustments (more traffic in evening)
+            if day_of_week == 4 and 15 <= hour <= 19:
+                hourly_traffic += 10
+            
+            # Monday morning is slightly heavier
+            if day_of_week == 0 and 7 <= hour <= 9:
+                hourly_traffic += 5
+            
+            # Clamp to valid range (5-95)
+            hourly_traffic = max(5, min(95, hourly_traffic))
+            
+            # Calculate derived metrics
+            congestion_level = hourly_traffic / 100
+            current_speed = city_free_flow * (1 - congestion_level * 0.7)
+            current_speed = max(10, current_speed)  # Minimum 10 km/h even in heavy traffic
+            
+            # Determine if this is a rush hour
+            is_rush_hour = (not is_weekend and not is_holiday and 
+                          ((7 <= hour <= 9) or (17 <= hour <= 19)))
             
             traffic_data.append({
                 'city': city['name'],
@@ -196,8 +272,17 @@ class TrafficCollector:
                 'date': dt.date(),
                 'hour': hour,
                 'day_of_week': day_of_week,
-                'traffic_index': round(traffic_index, 2),
-                'congestion_level': round(traffic_index / 100, 3),
+                'lat': float(city['lat']),
+                'lon': float(city['lon']),
+                'current_speed': round(current_speed, 1),
+                'free_flow_speed': round(city_free_flow, 1),
+                'confidence': 0.95,
+                'congestion_level': round(congestion_level, 3),
+                'traffic_index': round(hourly_traffic, 2),
+                'is_rush_hour': is_rush_hour,
+                'is_weekend': is_weekend,
+                'is_holiday': is_holiday,
+                'holiday_name': german_holidays.get(date_str, ''),
                 'data_source': 'synthetic'
             })
         
@@ -234,25 +319,50 @@ class TrafficCollector:
                 all_data.append(df)
         else:
             print("\nAttempting to collect real traffic data from TomTom API...")
-            current_date = start_date
             
-            while current_date <= end_date:
+            # Quick test: Try API for first city/date to see if it works
+            test_city = city_keys[0]
+            test_data = self.get_tomtom_traffic_index(test_city, start_date)
+            
+            if not test_data:
+                print(f"[WARN] TomTom API unavailable (403 Forbidden or no data).")
+                print("Switching to synthetic traffic data for all cities...")
+                # Fall back to synthetic for all cities
                 for city_key in city_keys:
-                    print(f"Fetching traffic for {self.cities[city_key]['name']} on {current_date.date()}...")
-                    
-                    # Try TomTom API first
-                    traffic_data = self.get_tomtom_traffic_index(city_key, current_date)
-                    
-                    if not traffic_data:
-                        # Try alternative source
-                        traffic_data = self.get_traffic_from_alternative_source(city_key, current_date)
-                    
-                    if traffic_data:
-                        all_data.append(traffic_data)
-                    
-                    time.sleep(0.5)  # Rate limiting
+                    print(f"Generating synthetic data for {self.cities[city_key]['name']}...")
+                    df = self.create_synthetic_traffic_data(city_key, start_date, end_date)
+                    all_data.append(df)
+            else:
+                # API works, collect real data
+                current_date = start_date
+                consecutive_failures = 0
+                max_failures = 5  # Stop trying after 5 consecutive failures
                 
-                current_date += timedelta(days=1)
+                while current_date <= end_date:
+                    for city_key in city_keys:
+                        # Try TomTom API first
+                        traffic_data = self.get_tomtom_traffic_index(city_key, current_date)
+                        
+                        if not traffic_data:
+                            consecutive_failures += 1
+                            if consecutive_failures >= max_failures:
+                                print(f"\n[WARN] Too many API failures. Switching to synthetic data...")
+                                # Generate synthetic for remaining dates
+                                remaining_dates = (end_date - current_date).days + 1
+                                for remaining_city in city_keys:
+                                    df = self.create_synthetic_traffic_data(remaining_city, current_date, end_date)
+                                    all_data.append(df)
+                                break
+                        else:
+                            consecutive_failures = 0  # Reset on success
+                            all_data.append(traffic_data)
+                        
+                        time.sleep(0.1)  # Reduced rate limiting
+                    
+                    if consecutive_failures >= max_failures:
+                        break
+                    
+                    current_date += timedelta(days=1)
         
         if not all_data:
             print("\nNo traffic data collected. Consider using synthetic data as fallback.")

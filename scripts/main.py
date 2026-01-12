@@ -66,13 +66,17 @@ def collect_data():
     # Collect traffic data
     print("\n--- Collecting Traffic Data ---")
     traffic_collector = TrafficCollector()
-    traffic_df = traffic_collector.collect_traffic_data(start_date, end_date, use_synthetic=False)
-    if traffic_df.empty:
-        print("Real traffic data unavailable. Using synthetic data...")
-        traffic_df = traffic_collector.collect_traffic_data(start_date, end_date, use_synthetic=True)
+    # Use synthetic traffic data (TomTom API doesn't provide historical data on free tier)
+    # Synthetic data is based on realistic patterns:
+    # - Weekday vs weekend patterns
+    # - City size (larger cities = more congestion)
+    # - German holidays
+    # - Day-to-day variation
+    print("Note: Using synthetic traffic data (historical data requires paid API)")
+    traffic_df = traffic_collector.collect_traffic_data(start_date, end_date, use_synthetic=True)
     if not traffic_df.empty:
         traffic_collector.save_traffic_data(traffic_df)
-        print("\n✓ Traffic data saved. You can inspect the CSV file before running cleaning.")
+        print("\n✓ Traffic data saved (synthetic). You can inspect the CSV file before running cleaning.")
     else:
         print("⚠ No traffic data collected.")
     

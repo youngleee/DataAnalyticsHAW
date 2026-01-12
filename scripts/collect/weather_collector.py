@@ -14,7 +14,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 try:
-    from meteostat import Point, Daily, Stations
+    from meteostat import Point, Hourly, Stations
 except ImportError:
     print("ERROR: meteostat package not installed. Please run: pip install meteostat")
     sys.exit(1)
@@ -29,15 +29,10 @@ class WeatherCollector:
         """Initialize weather collector."""
         self.cities = get_cities()
         
-        # Meteostat station IDs for major German cities (will be auto-detected if not specified)
+        # Meteostat station IDs cache (will be auto-detected dynamically)
         # You can find station IDs at: https://meteostat.net/en/stations
-        self.station_ids = {
-            'berlin': None,  # Will auto-detect nearest station
-            'munich': None,
-            'hamburg': None,
-            'cologne': None,
-            'frankfurt': None
-        }
+        # Initialize with None for all cities - will be populated on first access
+        self.station_ids = {city_key: None for city_key in self.cities.keys()}
         
     def find_nearest_station(self, city_key: str) -> Optional[str]:
         """
@@ -89,6 +84,10 @@ class WeatherCollector:
         lon = city['lon']
         
         # Find nearest station if not already cached
+        # Initialize cache entry if it doesn't exist (for dynamically added cities)
+        if city_key not in self.station_ids:
+            self.station_ids[city_key] = None
+        
         if self.station_ids[city_key] is None:
             self.station_ids[city_key] = self.find_nearest_station(city_key)
         
@@ -102,15 +101,15 @@ class WeatherCollector:
             location = Point(lat, lon, alt=0)  # Can add altitude if known
         
         try:
-            # Get daily weather data
-            data = Daily(location, start_date, end_date)
+            # Get HOURLY weather data
+            data = Hourly(location, start_date, end_date)
             data = data.fetch()
             
             if data.empty:
                 print(f"  Warning: No weather data available for {city['name']} from {start_date.date()} to {end_date.date()}")
                 return None
             
-            # Reset index to get date as column
+            # Reset index to get datetime as column
             data = data.reset_index()
             
             # Add city information
@@ -119,16 +118,16 @@ class WeatherCollector:
             data['lat'] = lat
             data['lon'] = lon
             
-            # Rename columns to match our standard format
+            # Rename columns to match our standard format (hourly has different column names)
             column_mapping = {
-                'time': 'date',
-                'tavg': 'temperature',  # Average temperature
-                'tmin': 'temp_min',
-                'tmax': 'temp_max',
+                'time': 'datetime',
+                'temp': 'temperature',  # Temperature in °C
                 'prcp': 'precipitation',  # Precipitation in mm
                 'wspd': 'wind_speed',  # Wind speed (km/h, will convert to m/s)
                 'pres': 'pressure',  # Pressure in hPa
-                'rhum': 'humidity'  # Relative humidity (%)
+                'rhum': 'humidity',  # Relative humidity (%)
+                'wdir': 'wind_direction',  # Wind direction in degrees
+                'coco': 'weather_code'  # Weather condition code
             }
             
             # Rename columns that exist
@@ -140,15 +139,11 @@ class WeatherCollector:
             if 'wind_speed' in data.columns:
                 data['wind_speed'] = data['wind_speed'] / 3.6
             
-            # Convert date to datetime if it's not already
-            if 'date' in data.columns:
-                data['date'] = pd.to_datetime(data['date'])
-                data['datetime'] = data['date']  # For consistency
-            
-            # Fill missing temperature with average if min/max available
-            if 'temperature' not in data.columns or data['temperature'].isna().all():
-                if 'temp_min' in data.columns and 'temp_max' in data.columns:
-                    data['temperature'] = (data['temp_min'] + data['temp_max']) / 2
+            # Ensure datetime column exists and extract date/hour
+            if 'datetime' in data.columns:
+                data['datetime'] = pd.to_datetime(data['datetime'])
+                data['date'] = data['datetime'].dt.date
+                data['hour'] = data['datetime'].dt.hour
             
             return data
             
@@ -187,9 +182,9 @@ class WeatherCollector:
             
             if weather_df is not None and not weather_df.empty:
                 all_data.append(weather_df)
-                print(f"  ✓ Collected {len(weather_df)} days of data for {city_name}")
+                print(f"  [OK] Collected {len(weather_df)} hours of data for {city_name}")
             else:
-                print(f"  ⚠ No data collected for {city_name}")
+                print(f"  [WARN] No data collected for {city_name}")
         
         if not all_data:
             print("\nWarning: No weather data collected!")
