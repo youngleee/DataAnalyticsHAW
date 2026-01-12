@@ -175,13 +175,16 @@ class TrafficCollector:
         }
         base_traffic = city_traffic_base.get(city_key, 25 + random.uniform(0, 8))
         
-        # German public holidays Jan-Mar 2024
+        # German public holidays Jan-Mar 2024 with traffic patterns
+        # Travel holidays = HIGH traffic, quiet holidays = lower traffic
         german_holidays = {
-            '2024-01-01': 'New Year',           # Neujahr
-            '2024-01-06': 'Epiphany',           # Heilige Drei Koenige (some states)
-            '2024-03-29': 'Good Friday',        # Karfreitag
-            '2024-03-31': 'Easter Sunday',      # Ostersonntag
+            '2024-01-01': ('New Year', 'high'),           # People traveling, visiting family
+            '2024-01-06': ('Epiphany', 'moderate'),       # Some travel in southern states
+            '2024-03-29': ('Good Friday', 'high'),        # Major travel day for Easter
+            '2024-03-31': ('Easter Sunday', 'high'),      # Family visits, travel
         }
+        # Days BEFORE holidays often have even worse traffic (travel)
+        pre_holiday_dates = ['2023-12-31', '2024-03-28', '2024-03-30']  # NYE, day before Good Friday, Easter Saturday
         
         traffic_data = []
         np.random.seed(hash(city_key) % 2**32)
@@ -200,14 +203,35 @@ class TrafficCollector:
             
             # HOURLY PATTERNS (the key differentiator!)
             is_holiday = date_str in german_holidays
+            is_pre_holiday = date_str in pre_holiday_dates
             is_weekend = day_of_week >= 5
+            holiday_info = german_holidays.get(date_str, (None, None))
             
-            if is_holiday:
-                # Holidays: very low traffic, similar to Sunday
-                if 10 <= hour <= 17:
-                    hourly_traffic += 5 + np.random.normal(0, 3)
+            if is_pre_holiday:
+                # Day before major holidays = TERRIBLE traffic (everyone traveling)
+                if 10 <= hour <= 20:
+                    hourly_traffic += 40 + np.random.normal(0, 8)  # Very high
+                elif 6 <= hour <= 9:
+                    hourly_traffic += 25 + np.random.normal(0, 5)
                 else:
-                    hourly_traffic -= 10 + np.random.normal(0, 2)
+                    hourly_traffic += 10 + np.random.normal(0, 4)
+            elif is_holiday:
+                # Holidays: HIGH traffic due to travel and family visits
+                holiday_name, traffic_level = holiday_info
+                if traffic_level == 'high':
+                    # High traffic holidays (New Year, Easter)
+                    if 10 <= hour <= 18:
+                        hourly_traffic += 35 + np.random.normal(0, 7)  # Heavy traffic
+                    elif 8 <= hour <= 9 or 19 <= hour <= 21:
+                        hourly_traffic += 25 + np.random.normal(0, 5)
+                    else:
+                        hourly_traffic += 5 + np.random.normal(0, 3)
+                else:
+                    # Moderate traffic holidays
+                    if 10 <= hour <= 17:
+                        hourly_traffic += 20 + np.random.normal(0, 5)
+                    else:
+                        hourly_traffic += 5 + np.random.normal(0, 3)
             elif is_weekend:
                 # Weekend patterns
                 if day_of_week == 5:  # Saturday
@@ -265,6 +289,13 @@ class TrafficCollector:
             is_rush_hour = (not is_weekend and not is_holiday and 
                           ((7 <= hour <= 9) or (17 <= hour <= 19)))
             
+            # Get holiday name if applicable
+            holiday_name = ''
+            if is_holiday:
+                holiday_name = german_holidays.get(date_str, ('', ''))[0]
+            elif is_pre_holiday:
+                holiday_name = 'Pre-Holiday Travel'
+            
             traffic_data.append({
                 'city': city['name'],
                 'city_key': city_key,
@@ -281,8 +312,8 @@ class TrafficCollector:
                 'traffic_index': round(hourly_traffic, 2),
                 'is_rush_hour': is_rush_hour,
                 'is_weekend': is_weekend,
-                'is_holiday': is_holiday,
-                'holiday_name': german_holidays.get(date_str, ''),
+                'is_holiday': is_holiday or is_pre_holiday,
+                'holiday_name': holiday_name,
                 'data_source': 'synthetic'
             })
         
