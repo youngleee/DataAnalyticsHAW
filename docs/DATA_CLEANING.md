@@ -135,9 +135,81 @@ The cleaner validates:
 
 ---
 
+## Cleaning Results (Latest Run: 2026-01-12)
+
+### Summary Statistics
+
+| Dataset | Rows Before | Rows After | Nulls Filled | Duplicates Removed | Outliers Clipped |
+|---------|-------------|------------|--------------|-------------------|------------------|
+| **Weather** | 164,259 | 142,649 | 83,808 | 0 | 0 |
+| **Air Quality** | 150,484 | 143,932 | 51,552 | 0 | 0 |
+| **Traffic** | 170,719 | 142,626 | 161,160 | 0 | 0 |
+
+### City Alignment Results
+
+| Metric | Count |
+|--------|-------|
+| Weather cities (before) | 76 |
+| Air quality cities (before) | 69 |
+| Traffic cities (before) | 79 |
+| **Common cities (after)** | **66** |
+| Dropped from weather | 10 |
+| Dropped from air quality | 3 |
+| Dropped from traffic | 13 |
+
+### Columns After Cleaning
+
+**Weather (22 columns):**
+```
+datetime, temperature, dwpt, humidity, precipitation, snow, wind_direction, 
+wind_speed, wpgt, pressure, tsun, weather_code, city, city_key, lat, lon, 
+date, hour, month, is_night, day_of_week, is_weekday
+```
+
+**Air Quality (13 columns):**
+```
+city, city_key, datetime, date, hour, no2, pm10, o3, month, is_night, 
+day_of_week, is_weekday, aqi_avg
+```
+
+**Traffic (19 columns):**
+```
+city, city_key, datetime, date, hour, day_of_week, lat, lon, current_speed, 
+free_flow_speed, congestion_level, traffic_index, is_rush_hour, is_weekend, 
+is_holiday, holiday_name, month, is_night, is_weekday
+```
+
+### Derived Features Added
+
+| Feature | Type | Description | Added To |
+|---------|------|-------------|----------|
+| `month` | int | Month number (1-3) | All datasets |
+| `is_night` | bool | True if hour < 6 or hour >= 22 | All datasets |
+| `day_of_week` | int | 0=Monday, 6=Sunday | Weather, Air Quality |
+| `is_weekday` | bool | True if Monday-Friday | All datasets |
+| `aqi_avg` | float | Average of NO2, PM10, O3 | Air Quality only |
+
+### Columns Dropped
+
+| Dataset | Columns Dropped | Reason |
+|---------|-----------------|--------|
+| Air Quality | `station_name`, `station_id` | City-level aggregation is sufficient |
+| Traffic | `data_source`, `confidence` | Metadata not needed for analysis |
+
+### Data Type Optimizations
+
+| Change | Memory Impact |
+|--------|---------------|
+| `float64` → `float32` | ~50% reduction |
+| `hour` → `int8` | ~87% reduction |
+| `day_of_week` → `int8` | ~87% reduction |
+
+---
+
 ## Changelog
 
 | Date | Change |
 |------|--------|
 | 2026-01-12 | Initial cleaning pipeline created |
+| 2026-01-12 | First cleaning run completed - 66 common cities identified |
 
